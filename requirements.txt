@@ -1,0 +1,7 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+websockets>=13.0
+SpeechRecognition>=3.10.0
+edge-tts>=6.1.12
+miniaudio>=1.59
+requests>=2.31.0
