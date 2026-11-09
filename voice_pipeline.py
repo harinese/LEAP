@@ -103,10 +103,22 @@ def get_destination_display(dest: str, lang: str = "kn") -> str:
 
 def detect_language(text: str) -> str:
     for ch in text:
+        if '\u0C00' <= ch <= '\u0C7F':
+            return 'te'
         if '\u0C80' <= ch <= '\u0CFF':
             return 'kn'
+        if '\u0B80' <= ch <= '\u0BFF':
+            return 'ta'
         if '\u0900' <= ch <= '\u097F':
+            if any(w in text for w in ["आहे", "नाही", "गाडी", "पुण्याहून"]):
+                return 'mr'
             return 'hi'
+        if '\u0A80' <= ch <= '\u0AFF':
+            return 'gu'
+        if '\u0980' <= ch <= '\u09FF':
+            return 'bn'
+        if '\u0D00' <= ch <= '\u0D7F':
+            return 'ml'
     return 'en'
 
 def calculate_rms(pcm_bytes: bytes) -> float:
@@ -194,22 +206,32 @@ class VoicePipeline:
         if len(pcm_data) < 3200:
             return ""
 
-        primary_lang = "kn-IN" if self.language == "kn" else ("hi-IN" if self.language == "hi" else "en-IN")
-
-        # 1. Primary: Gnani Prisma STT (v3.0)
+        # 1. Primary: Gnani Prisma STT (v3.0) with indic-auto multilingual detection
         try:
-            gnani_text = await gnani_client.transcribe_gnani(pcm_data, language_code=primary_lang)
+            gnani_text = await gnani_client.transcribe_gnani(pcm_data, language_code="indic-auto")
             if gnani_text and len(gnani_text.strip()) > 1:
                 transcription = gnani_text.strip()
                 self.language = detect_language(transcription)
+                logger.info(f"Gnani STT Detected ({self.language}): {transcription}")
                 return transcription
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Gnani STT error: {e}")
 
-        # 2. Resilient Concurrent Fallback: Google Speech Recognition
+        # 2. Resilient Concurrent Fallback: Google Speech Recognition across Indic languages
         normalized_data = normalize_pcm(pcm_data)
         audio = sr.AudioData(normalized_data, 8000, 2)
-        fallback_langs = ["kn-IN", "hi-IN", "en-IN"]
+
+        lang_code_map = {
+            "te": "te-IN",
+            "kn": "kn-IN",
+            "hi": "hi-IN",
+            "ta": "ta-IN",
+            "mr": "mr-IN",
+            "en": "en-IN"
+        }
+        current_code = lang_code_map.get(self.language, "kn-IN")
+        all_langs = ["te-IN", "kn-IN", "hi-IN", "ta-IN", "mr-IN", "en-IN"]
+        ordered_langs = [current_code] + [l for l in all_langs if l != current_code]
 
         async def try_recognize(lang):
             try:
@@ -220,14 +242,14 @@ class VoicePipeline:
                 return ""
             return ""
 
-        # Try primary language first
-        transcription = await try_recognize(primary_lang)
+        # Try prioritized language first
+        transcription = await try_recognize(ordered_langs[0])
         if transcription:
             self.language = detect_language(transcription)
             return transcription
 
-        # If primary returned empty, race alternates concurrently!
-        alternates = [l for l in fallback_langs if l != primary_lang]
+        # If empty, race remaining Indic languages concurrently!
+        alternates = ordered_langs[1:]
         results = await asyncio.gather(*(try_recognize(l) for l in alternates))
         for res in results:
             if res:

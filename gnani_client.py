@@ -20,22 +20,22 @@ GNANI_API_KEY = os.getenv("GNANI_API_KEY", "")
 
 # Voice mappings for Gnani Timbre models across all Indian languages
 GNANI_VOICES = {
-    "kn-IN": "Lakshmi",
-    "kn": "Lakshmi",
-    "hi-IN": "Shubham",
-    "hi": "Shubham",
-    "mr-IN": "Shubham",
-    "mr": "Shubham",
-    "te-IN": "Kavitha",
-    "te": "Kavitha",
-    "ta-IN": "Kavitha",
-    "ta": "Kavitha",
-    "gu-IN": "Shubham",
-    "gu": "Shubham",
-    "bn-IN": "Lakshmi",
-    "bn": "Lakshmi",
-    "ml-IN": "Kavitha",
-    "ml": "Kavitha",
+    "kn-IN": "Kaveri",
+    "kn": "Kaveri",
+    "te-IN": "Lavanya",
+    "te": "Lavanya",
+    "hi-IN": "Bhavna",
+    "hi": "Bhavna",
+    "mr-IN": "Bhavna",
+    "mr": "Bhavna",
+    "ta-IN": "Oviya",
+    "ta": "Oviya",
+    "gu-IN": "Bhavna",
+    "gu": "Bhavna",
+    "bn-IN": "Devika",
+    "bn": "Devika",
+    "ml-IN": "Devika",
+    "ml": "Devika",
     "en-IN": "Nalini",
     "en": "Nalini"
 }
@@ -65,7 +65,7 @@ def wav_to_pcm_bytes(wav_bytes: bytes, target_sample_rate: int = 8000) -> bytes:
         logger.error(f"Error decoding WAV to PCM: {e}")
         return b""
 
-async def transcribe_gnani(pcm_bytes: bytes, language_code: str = "kn-IN") -> str:
+async def transcribe_gnani(pcm_bytes: bytes, language_code: str = "indic-auto") -> str:
     """
     Calls Gnani Prisma STT REST API (v3.0) with in-memory WAV audio.
     Endpoint: POST https://api.vachana.ai/stt/v3
@@ -119,7 +119,7 @@ async def synthesize_gnani(text: str, language_code: str = "kn-IN", voice: Optio
         logger.warning("GNANI_API_KEY not configured. Falling back.")
         return b""
 
-    selected_voice = voice or GNANI_VOICES.get(language_code, "Lakshmi")
+    selected_voice = voice or GNANI_VOICES.get(language_code, "Kaveri")
     url = f"{GNANI_BASE_URL}/api/v1/tts/inference"
     headers = {
         "Content-Type": "application/json",

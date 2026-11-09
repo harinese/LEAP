@@ -325,12 +325,15 @@ async def websocket_endpoint(websocket: WebSocket):
 
                                 if not recognized_text:
                                     logger.warning("Empty transcription, asking for repeat in caller language.")
-                                    if pipeline.language == "kn":
-                                        agent_reply = "ಕ್ಷಮಿಸಿ ರೀ, ಇನ್ನೊಮ್ಮೆ ಸ್ಪಷ್ಟವಾಗಿ ಹೇಳ್ತೀರಾ?"
-                                    elif pipeline.language == "hi":
-                                        agent_reply = "माफ कीजिए, आवाज साफ नहीं आई। किस शहर के लिए लोड चाहिए, दोबारा बोलेंगे?"
-                                    else:
-                                        agent_reply = "Sorry, I could not hear clearly. Which city are you looking for a load to?"
+                                    repeat_prompts = {
+                                        "te": "క్షమించండి, మీ మాట స్పష్టంగా వినిపించలేదు. మళ్లీ చెప్పండి?",
+                                        "kn": "ಕ್ಷಮಿಸಿ ರೀ, ಇನ್ನೊಮ್ಮೆ ಸ್ಪಷ್ಟವಾಗಿ ಹೇಳ್ತೀರಾ?",
+                                        "hi": "माफ कीजिए, आवाज साफ नहीं आई। दोबारा बोलेंगे?",
+                                        "ta": "மன்னிக்கவும், உங்கள் குரல் தெளிவாக கேட்கவில்லை. மீண்டும் கூறுங்கள்?",
+                                        "mr": "माफ करा, आवाज स्पष्ट आला नाही. पुन्हा सांगाल का?",
+                                        "en": "Sorry, I could not hear clearly. Could you please repeat?"
+                                    }
+                                    agent_reply = repeat_prompts.get(pipeline.language, repeat_prompts["kn"])
                                     reply_pcm = await pipeline.text_to_speech_pcm(agent_reply)
                                     cancel_speech_event.clear()
                                     asyncio.create_task(play_audio_task(reply_pcm))
