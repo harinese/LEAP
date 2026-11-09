@@ -12,6 +12,7 @@ import uvicorn
 import db_manager
 import matching_engine
 from voice_pipeline import VoicePipeline, calculate_rms
+import gemini_brain
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("agent_server")
@@ -28,9 +29,29 @@ app.add_middleware(
 
 db_manager.init_db()
 
+def get_db_context_summary():
+    try:
+        conn = db_manager.get_connection()
+        c = conn.cursor()
+        c.execute("SELECT id, cargo_type, weight_tonnes, pickup_location, destination, max_budget FROM loads WHERE status = 'PENDING' LIMIT 6")
+        loads = [dict(r) for r in c.fetchall()]
+        c.execute("SELECT id, truck_type, capacity_tonnes, current_location, destination, min_price FROM trucks WHERE status = 'AVAILABLE' LIMIT 6")
+        trucks = [dict(r) for r in c.fetchall()]
+        conn.close()
+        loads_str = "\n".join([f"Load #{l['id']}: {l['weight_tonnes']}T {l['cargo_type']} to {l['destination']} (Budget: Rs {int(l['max_budget']) if l['max_budget'] else 'Negotiable'})" for l in loads]) or "No active loads"
+        trucks_str = "\n".join([f"Truck #{t['id']}: {t['capacity_tonnes']}T {t['truck_type']} at {t['current_location']} to {t['destination']}" for t in trucks]) or "No active trucks"
+        return {
+            "available_loads_summary": loads_str,
+            "available_trucks_summary": trucks_str
+        }
+    except Exception as e:
+        logger.error(f"Error fetching DB context summary: {e}")
+        return {"available_loads_summary": "Error", "available_trucks_summary": "Error"}
+
+
 CHUNK_SIZE = 640  # 40ms of 8000Hz 16-bit mono PCM (320 samples * 2 bytes)
 BASE_SILENCE_THRESHOLD = 320
-SILENCE_DURATION_FRAMES = 25    # ~1000ms silence to detect natural pause at end of utterance
+SILENCE_DURATION_FRAMES = 38    # ~1520ms silence to allow natural breathing pauses without cut-off
 
 async def send_audio_to_exotel(websocket: WebSocket, stream_sid: str, pcm_data: bytes, cancel_event: asyncio.Event, ws_lock: asyncio.Lock):
     offset = 0
@@ -191,6 +212,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 logger.info(f"Incoming Call (CLI Auth): {caller_phone} | Session: {call_sid}")
                 profile = db_manager.get_or_create_caller_profile(caller_phone)
                 pipeline = VoicePipeline(stream_sid, call_sid, caller_phone)
+                gemini_conv = gemini_brain.GeminiConversation(call_sid, caller_phone)
                 pipeline.language = profile.get("preferred_language", "kn")
                 db_manager.log_call_start(call_sid, stream_sid, caller_phone)
 
@@ -289,7 +311,21 @@ async def websocket_endpoint(websocket: WebSocket):
                                 else:
                                     logger.info(f"Caller Said: {recognized_text}")
                                     db_manager.save_utterance(call_sid, "caller", recognized_text)
-                                    agent_reply = pipeline.process_turn(recognized_text)
+
+                                    # Primary: Gemini Conversational Brain (Dynamic, creative, all Indian languages)
+                                    gemini_reply = ""
+                                    if gemini_conv and gemini_conv.is_available():
+                                        db_ctx = get_db_context_summary()
+                                        db_ctx["caller_role"] = pipeline.role
+                                        gemini_reply = await gemini_conv.generate_reply(recognized_text, db_ctx)
+                                        if gemini_reply:
+                                            agent_reply = gemini_reply
+                                            pipeline.language = gemini_conv.detected_language
+                                            logger.info(f"Gemini Brain Reply ({pipeline.language}): {agent_reply}")
+
+                                    # Fallback: Deterministic state engine
+                                    if not gemini_reply:
+                                        agent_reply = pipeline.process_turn(recognized_text)
 
                                 logger.info(f"Agent Reply: {agent_reply}")
                                 db_manager.save_utterance(call_sid, "agent", agent_reply)

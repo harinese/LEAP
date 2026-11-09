@@ -18,12 +18,24 @@ logger = logging.getLogger("gnani_client")
 GNANI_BASE_URL = os.getenv("GNANI_BASE_URL", "https://api.vachana.ai").rstrip("/")
 GNANI_API_KEY = os.getenv("GNANI_API_KEY", "")
 
-# Voice mappings for Gnani Timbre models
+# Voice mappings for Gnani Timbre models across all Indian languages
 GNANI_VOICES = {
     "kn-IN": "Lakshmi",
     "kn": "Lakshmi",
     "hi-IN": "Shubham",
     "hi": "Shubham",
+    "mr-IN": "Shubham",
+    "mr": "Shubham",
+    "te-IN": "Kavitha",
+    "te": "Kavitha",
+    "ta-IN": "Kavitha",
+    "ta": "Kavitha",
+    "gu-IN": "Shubham",
+    "gu": "Shubham",
+    "bn-IN": "Lakshmi",
+    "bn": "Lakshmi",
+    "ml-IN": "Kavitha",
+    "ml": "Kavitha",
     "en-IN": "Nalini",
     "en": "Nalini"
 }
