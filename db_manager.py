@@ -132,38 +132,51 @@ def init_db():
 
 def seed_inventory(conn: sqlite3.Connection):
     cursor = conn.cursor()
-    initial_profiles = [
-        ("+919448011221", "Shivanand Kulkarni", "kn", "SHIPPER"),
-        ("+919448011222", "Ramesh Byadgi", "kn", "SHIPPER"),
-        ("+919448011223", "Mallikarjun Traders", "kn", "SHIPPER"),
-        ("+919845012341", "Manjunath Patil", "kn", "DRIVER"),
-        ("+919845012342", "Suresh Gowda", "kn", "DRIVER"),
-        ("+919845012343", "Basavaraj Hiremath", "kn", "DRIVER"),
-    ]
-    cursor.executemany("""
-        INSERT OR IGNORE INTO caller_profiles (phone, name, preferred_language, last_role)
-        VALUES (?, ?, ?, ?)
-    """, initial_profiles)
 
     initial_loads = [
+        ("+919880011001", "Acme Logistics", "Auto Components", 20.0, "Bengaluru Peenya Ind Area", "Mumbai", "Today 20:00", 42000),
+        ("+919880011002", "Tata Supply Chain", "Steel Coils", 25.0, "Bengaluru Electronic City", "Pune", "Today 21:00", 32000),
+        ("+919880011003", "Aurobindo Cargo", "Industrial Chemicals", 16.0, "Bommasandra Depot", "Hyderabad", "Today 19:30", 24000),
+        ("+919880011004", "Ashok Leyland Spares", "Automotive Parts", 12.0, "Hosur Hub", "Chennai", "Today 18:00", 15000),
+        ("+919880011005", "National Retail Ltd", "Consumer Electronics", 24.0, "Whitefield ICD", "Delhi", "Tomorrow 08:00", 95000),
+        ("+919880011006", "Gujarat Textiles", "Raw Cotton Yarn", 18.0, "Davanagere Textile Park", "Ahmedabad", "Today 22:00", 55000),
         ("+919448011221", "Shivanand Kulkarni", "Onion Bags", 15.0, "APMC Shed 4", "Bengaluru", "Today 18:00", 19500),
         ("+919448011222", "Ramesh Byadgi", "Dry Red Chilli", 8.5, "APMC Chilli Gate 2", "Davanagere", "Today 19:30", 5800),
         ("+919448011223", "Mallikarjun Traders", "Bellary Red Onions", 14.0, "APMC Shed 9", "Belagavi", "Today 17:30", 6500),
-        ("+919448011224", "Annapurna Agro", "Pressed Cotton Bales", 22.0, "Tarihal Agro Godown", "Bengaluru", "Today 21:00", 25000),
-        ("+919448011225", "Ningappa Pujar", "Maize Grains", 18.0, "Platform 3", "Pune", "Tomorrow 06:00", 23000),
         ("+919448011226", "Mallikarjun Traders", "Red Onions", 10.0, "APMC Shed 12", "Chitradurga", "Today 20:00", 6800),
     ]
-    cursor.executemany("""
-        INSERT INTO loads (phone, shipper_name, cargo_type, weight_tonnes, pickup_location, destination, ready_time, max_budget)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, initial_loads)
 
     initial_trucks = [
+        ("+919741022001", "Gurpreet Singh", "14-Wheeler 25T Multi-Axle", 25.0, "Bengaluru Nelamangala Toll", "Mumbai", "Today 21:00", 40000),
+        ("+919741022002", "Ravinder Yadav", "12-Wheeler 20T Container", 20.0, "Whitefield Inland Depot", "Pune", "Today 20:30", 30000),
+        ("+919741022003", "Venkatesh Rao", "10-Wheeler 16T", 16.0, "Electronic City Phase 2", "Hyderabad", "Today 19:00", 22000),
+        ("+919741022004", "Murugan Transports", "6-Wheeler 12T", 12.0, "Attibele Border Checkpost", "Chennai", "Today 18:30", 14000),
+        ("+919741022005", "Harpreet Logistics", "40ft High Cube Container", 28.0, "Peenya Industrial Gateway", "Delhi", "Tomorrow 09:00", 90000),
+        ("+919741022006", "Patel Roadways", "14-Wheeler 22T", 22.0, "Hubballi By-pass", "Ahmedabad", "Today 22:30", 52000),
         ("+919845012341", "Manjunath Patil", "10-Wheeler Open Body", 16.0, "APMC Gate 1", "Belagavi", "Today 18:00", 5000),
         ("+919845012342", "Suresh Gowda", "6-Wheeler 17ft", 9.0, "Weighbridge 2", "Davanagere", "Today 19:00", 4500),
         ("+919845012343", "Basavaraj Hiremath", "12-Wheeler 24T", 24.0, "APMC Platform 1", "Bengaluru", "Today 20:30", 18000),
         ("+919845012344", "Praveen Kumar", "6-Wheeler 10T", 10.0, "APMC Gate 3", "Chitradurga", "Today 20:00", 6200),
     ]
+
+    # Pre-register profiles for all shippers and drivers to guarantee foreign key integrity
+    for row in initial_loads:
+        cursor.execute("""
+            INSERT OR IGNORE INTO caller_profiles (phone, name, preferred_language, last_role)
+            VALUES (?, ?, 'kn', 'SHIPPER')
+        """, (row[0], row[1]))
+
+    for row in initial_trucks:
+        cursor.execute("""
+            INSERT OR IGNORE INTO caller_profiles (phone, name, preferred_language, last_role)
+            VALUES (?, ?, 'kn', 'DRIVER')
+        """, (row[0], row[1]))
+
+    cursor.executemany("""
+        INSERT INTO loads (phone, shipper_name, cargo_type, weight_tonnes, pickup_location, destination, ready_time, max_budget)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, initial_loads)
+
     cursor.executemany("""
         INSERT INTO trucks (phone, driver_name, truck_type, capacity_tonnes, current_location, destination, departure_time, min_price)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
