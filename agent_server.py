@@ -75,7 +75,7 @@ def get_db_context_summary():
 
 CHUNK_SIZE = 640  # 40ms of 8000Hz 16-bit mono PCM (320 samples * 2 bytes)
 BASE_SILENCE_THRESHOLD = 320
-SILENCE_DURATION_FRAMES = 22    # ~880ms silence for ultra-fast turn turnaround without long pause
+SILENCE_DURATION_FRAMES = 13    # ~520ms silence for spontaneous, human-like turn turnaround
 
 async def send_audio_to_exotel(websocket: WebSocket, stream_sid: str, pcm_data: bytes, cancel_event: asyncio.Event, ws_lock: asyncio.Lock):
     offset = 0
@@ -331,93 +331,111 @@ async def websocket_endpoint(websocket: WebSocket):
                                         agent_reply = "माफ कीजिए, आवाज साफ नहीं आई। किस शहर के लिए लोड चाहिए, दोबारा बोलेंगे?"
                                     else:
                                         agent_reply = "Sorry, I could not hear clearly. Which city are you looking for a load to?"
+                                    reply_pcm = await pipeline.text_to_speech_pcm(agent_reply)
+                                    cancel_speech_event.clear()
+                                    asyncio.create_task(play_audio_task(reply_pcm))
                                 else:
                                     logger.info(f"Caller Said: {recognized_text}")
                                     db_manager.save_utterance(call_sid, "caller", recognized_text)
                                     pipeline.extract_entities(recognized_text)
 
-                                    # Primary: Gemini Conversational Brain (Dynamic, creative, all Indian languages)
-                                    gemini_reply = ""
+                                    call_should_hangup = False
+                                    full_reply_text = ""
+                                    streamed_chunks = 0
+
+                                    # Stream Gemini token clauses directly to pipelined TTS playback
                                     if gemini_conv and gemini_conv.is_available():
                                         db_ctx = get_db_context_summary()
                                         db_ctx["caller_role"] = pipeline.role
-                                        gemini_reply = await gemini_conv.generate_reply(recognized_text, db_ctx)
-                                        if gemini_reply:
-                                            agent_reply = gemini_reply
+                                        cancel_speech_event.clear()
+
+                                        async for chunk in gemini_conv.generate_reply_stream(recognized_text, db_ctx):
+                                            chunk_clean = chunk.strip()
+                                            if not chunk_clean:
+                                                continue
+
+                                            streamed_chunks += 1
+                                            if "[HANGUP]" in chunk_clean:
+                                                call_should_hangup = True
+                                                chunk_clean = chunk_clean.replace("[HANGUP]", "").strip()
+                                            elif "[hangup]" in chunk_clean.lower():
+                                                call_should_hangup = True
+                                                chunk_clean = re.sub(r'\[hangup\]', '', chunk_clean, flags=re.IGNORECASE).strip()
+
+                                            full_reply_text += " " + chunk_clean
                                             pipeline.language = gemini_conv.detected_language
-                                            logger.info(f"Gemini Brain Reply ({pipeline.language}): {agent_reply}")
 
-                                    # Fallback: Deterministic state engine
-                                    if not gemini_reply:
+                                            if chunk_clean:
+                                                chunk_pcm = await pipeline.text_to_speech_pcm(chunk_clean)
+                                                if chunk_pcm:
+                                                    await play_audio_task(chunk_pcm)
+
+                                    # Fallback to deterministic state engine if Gemini did not stream
+                                    if streamed_chunks == 0:
                                         agent_reply = pipeline.process_turn(recognized_text)
+                                        if "[HANGUP]" in agent_reply:
+                                            call_should_hangup = True
+                                            agent_reply = agent_reply.replace("[HANGUP]", "").strip()
+                                        elif "[hangup]" in agent_reply.lower():
+                                            call_should_hangup = True
+                                            agent_reply = re.sub(r'\[hangup\]', '', agent_reply, flags=re.IGNORECASE).strip()
 
-                                # Check for hangup signal
-                                should_hangup = False
-                                if "[HANGUP]" in agent_reply:
-                                    should_hangup = True
-                                    agent_reply = agent_reply.replace("[HANGUP]", "").strip()
-                                elif "[hangup]" in agent_reply.lower():
-                                    should_hangup = True
-                                    agent_reply = re.sub(r'\[hangup\]', '', agent_reply, flags=re.IGNORECASE).strip()
+                                        full_reply_text = agent_reply
+                                        reply_pcm = await pipeline.text_to_speech_pcm(agent_reply)
+                                        cancel_speech_event.clear()
+                                        await play_audio_task(reply_pcm)
 
-                                logger.info(f"Agent Reply: {agent_reply}")
-                                db_manager.save_utterance(call_sid, "agent", agent_reply)
+                                    clean_full = full_reply_text.strip()
+                                    logger.info(f"Full Agent Reply: {clean_full}")
+                                    db_manager.save_utterance(call_sid, "agent", clean_full)
 
-                                # Persist load/truck in DB if concluding call
-                                if should_hangup:
-                                    try:
-                                        dest = pipeline.extracted_data.get("destination") or "ಬೆಂಗಳೂರು"
-                                        tonnes = float(pipeline.extracted_data.get("capacity") or 4.0)
-                                        if pipeline.role == "SHIPPER":
-                                            if not pipeline.current_load_id:
-                                                cargo = pipeline.extracted_data.get("cargo_type") or "General Goods"
-                                                shipper_name = pipeline.extracted_data.get("name") or "ವ್ಯಾಪಾರಿ"
-                                                max_budget = float(pipeline.extracted_data.get("price") or 0.0)
-                                                pipeline.current_load_id = db_manager.register_load(
-                                                    phone=caller_phone or "+919448011999",
-                                                    destination=dest,
-                                                    weight=tonnes,
-                                                    cargo=cargo,
-                                                    shipper_name=shipper_name,
-                                                    max_budget=max_budget,
-                                                    call_sid=call_sid
-                                                )
-                                                logger.info(f"Persisted load #{pipeline.current_load_id} for {caller_phone}")
-                                        else:
-                                            if not pipeline.current_truck_id:
-                                                driver_name = pipeline.extracted_data.get("name") or "ಚಾಲಕ"
-                                                min_price = float(pipeline.extracted_data.get("price") or 0.0)
-                                                pipeline.current_truck_id = db_manager.register_truck(
-                                                    phone=caller_phone or "+919845012399",
-                                                    destination=dest,
-                                                    capacity=tonnes,
-                                                    truck_type=pipeline.extracted_data.get("vehicle_type", "Truck"),
-                                                    driver_name=driver_name,
-                                                    min_price=min_price,
-                                                    call_sid=call_sid
-                                                )
-                                                logger.info(f"Persisted truck #{pipeline.current_truck_id} for {caller_phone}")
-                                    except Exception as db_err:
-                                        logger.error(f"Error persisting on hangup: {db_err}")
+                                    # Persist load/truck in DB if concluding call
+                                    if call_should_hangup:
+                                        try:
+                                            dest = pipeline.extracted_data.get("destination") or "ಬೆಂಗಳೂರು"
+                                            tonnes = float(pipeline.extracted_data.get("capacity") or 4.0)
+                                            if pipeline.role == "SHIPPER":
+                                                if not pipeline.current_load_id:
+                                                    cargo = pipeline.extracted_data.get("cargo_type") or "General Goods"
+                                                    shipper_name = pipeline.extracted_data.get("name") or "ವ್ಯಾಪಾರಿ"
+                                                    max_budget = float(pipeline.extracted_data.get("price") or 0.0)
+                                                    pipeline.current_load_id = db_manager.register_load(
+                                                        phone=caller_phone or "+919448011999",
+                                                        destination=dest,
+                                                        weight=tonnes,
+                                                        cargo=cargo,
+                                                        shipper_name=shipper_name,
+                                                        max_budget=max_budget,
+                                                        call_sid=call_sid
+                                                    )
+                                                    logger.info(f"Persisted load #{pipeline.current_load_id} for {caller_phone}")
+                                            else:
+                                                if not pipeline.current_truck_id:
+                                                    driver_name = pipeline.extracted_data.get("name") or "ಚಾಲಕ"
+                                                    min_price = float(pipeline.extracted_data.get("price") or 0.0)
+                                                    pipeline.current_truck_id = db_manager.register_truck(
+                                                        phone=caller_phone or "+919845012399",
+                                                        destination=dest,
+                                                        capacity=tonnes,
+                                                        truck_type=pipeline.extracted_data.get("vehicle_type", "Truck"),
+                                                        driver_name=driver_name,
+                                                        min_price=min_price,
+                                                        call_sid=call_sid
+                                                    )
+                                                    logger.info(f"Persisted truck #{pipeline.current_truck_id} for {caller_phone}")
+                                        except Exception as db_err:
+                                            logger.error(f"Error persisting on hangup: {db_err}")
 
-                                reply_pcm = await pipeline.text_to_speech_pcm(agent_reply)
-                                cancel_speech_event.clear()
-
-                                if should_hangup:
-                                    logger.info(f"Call {call_sid}: Concluding call. Playing goodbye audio...")
-                                    await play_audio_task(reply_pcm)
-                                    # Allow Exotel telephony buffer to drain audio to caller PSTN
-                                    await asyncio.sleep(0.8)
-                                    logger.info(f"Terminating WebSocket connection for {call_sid}")
-                                    try:
-                                        await websocket.close()
-                                    except Exception:
-                                        pass
-                                    if call_sid:
-                                        db_manager.log_call_end(call_sid)
-                                    break
-                                else:
-                                    asyncio.create_task(play_audio_task(reply_pcm))
+                                        logger.info(f"Call {call_sid}: Concluding call. Playing goodbye audio and terminating...")
+                                        await asyncio.sleep(0.8) # Allow telephony buffer to finish draining to PSTN
+                                        logger.info(f"Terminating WebSocket connection for {call_sid}")
+                                        try:
+                                            await websocket.close()
+                                        except Exception:
+                                            pass
+                                        if call_sid:
+                                            db_manager.log_call_end(call_sid)
+                                        break
 
                             is_responding = False
 

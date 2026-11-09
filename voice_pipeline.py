@@ -206,24 +206,36 @@ class VoicePipeline:
         except Exception:
             pass
 
-        # 2. Resilient Fallback: Google Speech Recognition
+        # 2. Resilient Concurrent Fallback: Google Speech Recognition
         normalized_data = normalize_pcm(pcm_data)
         audio = sr.AudioData(normalized_data, 8000, 2)
-        transcription = ""
         fallback_langs = ["kn-IN", "hi-IN", "en-IN"]
-        langs_to_try = [primary_lang] + [l for l in fallback_langs if l != primary_lang]
 
-        for lang_code in langs_to_try:
+        async def try_recognize(lang):
             try:
-                text = await asyncio.to_thread(self.recognizer.recognize_google, audio, language=lang_code)
-                if text and len(text.strip()) > 1:
-                    transcription = text.strip()
-                    self.language = detect_language(transcription)
-                    return transcription
-            except (sr.UnknownValueError, sr.RequestError):
-                continue
+                t = await asyncio.to_thread(self.recognizer.recognize_google, audio, language=lang)
+                if t and len(t.strip()) > 1:
+                    return t.strip()
+            except Exception:
+                return ""
+            return ""
 
-        return transcription
+        # Try primary language first
+        transcription = await try_recognize(primary_lang)
+        if transcription:
+            self.language = detect_language(transcription)
+            return transcription
+
+        # If primary returned empty, race alternates concurrently!
+        alternates = [l for l in fallback_langs if l != primary_lang]
+        results = await asyncio.gather(*(try_recognize(l) for l in alternates))
+        for res in results:
+            if res:
+                transcription = res
+                self.language = detect_language(transcription)
+                return transcription
+
+        return ""
 
     def extract_entities(self, text: str):
         lower = text.lower()

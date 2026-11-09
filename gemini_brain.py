@@ -135,6 +135,75 @@ Respond naturally to the caller in the EXACT same language they spoke. Remember:
             logger.error(f"Gemini generation error: {e}")
             return ""
 
+    async def generate_reply_stream(self, user_text: str, db_context: Dict[str, Any]):
+        """
+        Streams sentence clauses from Gemini 2.0 / 1.5 Flash in real time.
+        Yields small conversational chunks (e.g. 4-8 words or clauses) as soon
+        as they are emitted by Gemini, enabling pipelined zero-wait TTS playback.
+        """
+        if not self.model:
+            return
+
+        loads_summary = db_context.get("available_loads_summary", "No active loads")
+        trucks_summary = db_context.get("available_trucks_summary", "No active trucks")
+        caller_role = db_context.get("caller_role", "UNKNOWN")
+
+        prompt = f"""[MARKET CONTEXT FOR THIS CALL]
+Caller Phone: {self.caller_phone}
+Caller Detected Role: {caller_role}
+Current Live Available Loads in SQLite:
+{loads_summary}
+Current Live Available Trucks in SQLite:
+{trucks_summary}
+
+[CONVERSATION HISTORY]
+{self._format_history()}
+
+[CALLER SAID JUST NOW]
+"{user_text}"
+
+Respond naturally to the caller in the EXACT same language they spoke. Remember: 1-2 spoken sentences maximum, no markdown, no asterisks."""
+
+        buffer = ""
+        full_reply = ""
+        try:
+            response = await self.model.generate_content_async(prompt, stream=True)
+            async for chunk in response:
+                if not chunk.text:
+                    continue
+                clean_text = chunk.text.replace("**", "").replace("*", "").replace("#", "")
+                buffer += clean_text
+                full_reply += clean_text
+
+                # Split on sentence boundaries or natural clause pauses (, ! ? . \n)
+                # Ensure we have at least 15 characters before splitting on comma to keep phrasing natural
+                while any(p in buffer for p in [".", "!", "?", "\n", ","]):
+                    indices = [buffer.find(p) for p in [".", "!", "?", "\n", ","] if buffer.find(p) != -1]
+                    if not indices:
+                        break
+                    idx = min(indices)
+                    if buffer[idx] == "," and idx < 15:
+                        break
+                    part = buffer[:idx + 1].strip()
+                    buffer = buffer[idx + 1:].strip()
+                    if part:
+                        self._update_detected_language(part)
+                        yield part
+
+            if buffer.strip():
+                self._update_detected_language(buffer.strip())
+                yield buffer.strip()
+
+            clean_full = full_reply.strip()
+            self.history.append({"role": "user", "text": user_text})
+            self.history.append({"role": "model", "text": clean_full})
+
+        except Exception as e:
+            logger.error(f"Gemini streaming error: {e}")
+            fallback_reply = await self.generate_reply(user_text, db_context)
+            if fallback_reply:
+                yield fallback_reply
+
     def _format_history(self) -> str:
         if not self.history:
             return "No previous turns."
