@@ -575,7 +575,7 @@ class VoicePipeline:
 
             match = matching_engine.find_best_truck_for_load(destination=dest, weight=tonnes, max_budget=max_budget)
             if match:
-                record = matching_engine.create_match_record(
+                matching_engine.create_match_record(
                     truck_id=match["truck_id"],
                     load_id=self.current_load_id,
                     route_score=match["route_score"],
@@ -583,31 +583,21 @@ class VoicePipeline:
                     overall_score=match["overall_score"],
                     agreed_price=match["agreed_price"]
                 )
-                self.current_match = {**match, **record}
-                self.state = "DEAL_OFFER"
 
-                price = int(match["agreed_price"])
-                truck_type = match["truck_type"]
-                loc = match["current_location"]
-
-                dest_display = get_destination_display(dest, lang)
-                price_kn = f"ಬಾಡಿಗೆ ರೂ. {price}" if price > 0 else "ಬಾಡಿಗೆ ಮಾತುಕತೆ ಮೂಲಕ ತೀರ್ಮಾನ"
-                price_hi = f"किराया {price} रुपये" if price > 0 else "किराया बातचीत से तय होगा"
-                price_en = f"Rs. {price}" if price > 0 else "Rate negotiable"
-
-                if lang == "kn":
-                    return f"ಖಂಡಿತ ರೀ {shipper_name}! ನಿಮ್ಮ {int(tonnes)} ಟನ್ {cargo} ಕಳಿಸಲು {dest_display} ಮಾರ್ಗದ {truck_type} ({loc}) ತಕ್ಷಣ ಲಭ್ಯವಿದೆ. {price_kn}. ಈ ಗಾಡಿ ಪಕ್ಕಾ ಮಾಡಲಾ ರೀ?"
-                elif lang == "hi":
-                    return f"बिल्कुल जी! आपका {int(tonnes)} टन {cargo} भेजने के लिए {dest} के लिए {truck_type} ({loc}) उपलब्ध है। {price_hi}। क्या यह गाड़ी बुक करें?"
-                else:
-                    return f"Sure! For your {int(tonnes)}-tonne {cargo} to {dest}, a {truck_type} at {loc} is available for {price_en}. Confirm booking?"
+            dest_display = get_destination_display(dest, lang)
+            self.state = "CALL_CONCLUDED"
+            if lang == "kn":
+                return f"ಧನ್ಯವಾದಗಳು ರೀ {shipper_name}! ನಿಮ್ಮ {dest_display} ಮಾರ್ಗದ {int(tonnes)} ಟನ್ {cargo} ವಿವರ ದಾಖಲಾಗಿದೆ. ಕೆಲವು ನಿಮಿಷಗಳಲ್ಲಿ ಸೂಕ್ತ ಗಾಡಿ ಹುಡುಕಿ ಕರೆ ಮಾಡಿ ತಿಳಿಸುತ್ತೇವೆ. [HANGUP]"
+            elif lang == "hi":
+                return f"धन्यवाद जी! {dest} के लिए आपके {int(tonnes)} टन {cargo} का विवरण दर्ज हो गया है। कुछ ही मिनटों में सही गाड़ी देखकर आपको कॉल करेंगे। [HANGUP]"
+            elif lang == "te":
+                return f"ధన్యవాదాలు! {dest} కోసం మీ {int(tonnes)} టన్నుల {cargo} వివరాలు నమోదయ్యాయి. కొద్ది నిమిషాల్లో సరైన లారీ చూసి కాల్ చేస్తాము. [HANGUP]"
+            elif lang == "ta":
+                return f"நன்றி! {dest} செல்லும் உங்கள் {int(tonnes)} டன் {cargo} விவரங்கள் பதிவாகியுள்ளன. சில நிமிடங்களில் பொருத்தமான லாரியைப் பார்த்து அழைக்கிறோம். [HANGUP]"
+            elif lang == "mr":
+                return f"धन्यवाद! {dest} साठी तुमच्या {int(tonnes)} टन {cargo} ची नोंद झाली आहे. काही मिनिटांत योग्य गाडी शोधून तुम्हाला कॉल करतो. [HANGUP]"
             else:
-                self.state = "DEAL_OFFER"
-                dest_display = get_destination_display(dest, lang)
-                if lang == "kn":
-                    return f"ಸರಿ ರೀ {shipper_name}. {dest_display}ಗೆ ನಿಮ್ಮ {int(tonnes)} ಟನ್ {cargo} ಲೋಡ್ ದಾಖಲಾಗಿದೆ. ಸೂಕ್ತ ರಿಟರ್ನ್ ಗಾಡಿ ಸಿಕ್ಕ ತಕ್ಷಣ ತಿಳಿಸುತ್ತೇವೆ."
-                else:
-                    return f"Recorded your {int(tonnes)}-tonne {cargo} load for {dest}. We will notify you as soon as a return truck is available."
+                return f"Thank you! Your details for {int(tonnes)} tonnes of {cargo} to {dest} are recorded. We will find a matching truck and call you back in a few minutes. [HANGUP]"
 
         else: # DRIVER
             tonnes = float(cap)
@@ -626,7 +616,7 @@ class VoicePipeline:
 
             match = matching_engine.find_best_load_for_truck(destination=dest, capacity=tonnes, min_price=min_price)
             if match:
-                record = matching_engine.create_match_record(
+                matching_engine.create_match_record(
                     truck_id=self.current_truck_id,
                     load_id=match["load_id"],
                     route_score=match["route_score"],
@@ -634,34 +624,35 @@ class VoicePipeline:
                     overall_score=match["overall_score"],
                     agreed_price=match["agreed_price"]
                 )
-                self.current_match = {**match, **record}
-                self.state = "DEAL_OFFER"
 
-                cargo = match["cargo_type"]
-                weight = match["weight_tonnes"]
-                pickup = match["pickup_location"]
-                price = int(match["agreed_price"])
-
-                price_kn = f"ಬಾಡಿಗೆ ರೂ. {price}" if price > 0 else "ಬಾಡಿಗೆ ಮಾತುಕತೆ ಮೂಲಕ ತೀರ್ಮಾನ"
-                price_hi = f"किराया {price} रुपये" if price > 0 else "किराया बातचीत से तय होगा"
-                price_en = f"Rs. {price}" if price > 0 else "Rate negotiable"
-
-                if lang == "kn":
-                    return f"ಖಂಡಿತ ರೀ {driver_name}! ನಿಮ್ಮ {int(tonnes)} ಟನ್ ಗಾಡಿಗೆ {pickup}ಯಿಂದ {weight} ಟನ್ {cargo} ಲೋಡ್ ತಕ್ಷಣ ಸಿಕ್ಕಿದೆ. {price_kn}. ಈ ಲೋಡ್ ಒಪ್ಕೋತೀರಾ ರೀ?"
-                elif lang == "hi":
-                    return f"बिल्कुल भाईसाहब! आपके {int(tonnes)} टन ट्रक के लिए {pickup} से {weight} टन {cargo} का लोड तुरंत उपलब्ध है। {price_hi}। क्या आप यह लोड लेना चाहते हैं?"
-                else:
-                    return f"Sure! For your {int(tonnes)}-tonne truck, {weight} tonnes of {cargo} is ready at {pickup} for {price_en}. Do you confirm?"
+            dest_display = get_destination_display(dest, lang)
+            self.state = "CALL_CONCLUDED"
+            if lang == "kn":
+                return f"ಧನ್ಯವಾದಗಳು ರೀ {driver_name}! ನಿಮ್ಮ {dest_display} ಮಾರ್ಗದ {int(tonnes)} ಟನ್ ಗಾಡಿ ವಿವರ ದಾಖಲಾಗಿದೆ. ಕೆಲವು ನಿಮಿಷಗಳಲ್ಲಿ ಸೂಕ್ತ ಲೋಡ್ ಹುಡುಕಿ ಕರೆ ಮಾಡಿ ತಿಳಿಸುತ್ತೇವೆ. [HANGUP]"
+            elif lang == "hi":
+                return f"धन्यवाद भाईसाहब! {dest} के लिए आपके {int(tonnes)} टन ट्रक का विवरण दर्ज हो गया है। कुछ ही मिनटों में सही लोड देखकर आपको कॉल करेंगे। [HANGUP]"
+            elif lang == "te":
+                return f"ధన్యవాదాలు! {dest} కోసం మీ {int(tonnes)} టన్నుల లారీ వివరాలు నమోదయ్యాయి. కొద్ది నిమిషాల్లో సరైన లోడ్ చూసి కాల్ చేస్తాము. [HANGUP]"
+            elif lang == "ta":
+                return f"நன்றி! {dest} செல்லும் உங்கள் {int(tonnes)} டன் லாரி விவரங்கள் பதிவாகியுள்ளன. சில நிமிடங்களில் சரியான லோடு பார்த்து அழைக்கிறோம். [HANGUP]"
+            elif lang == "mr":
+                return f"धन्यवाद! {dest} साठी तुमच्या {int(tonnes)} टन गाडीची नोंद झाली आहे. काही मिनिटांत योग्य लोड शोधून कॉल करतो. [HANGUP]"
             else:
-                self.state = "DEAL_OFFER"
-                dest_display = get_destination_display(dest, lang)
-                if lang == "kn":
-                    return f"ಸರಿ ರೀ {driver_name}. {dest_display}ಗೆ ನಿಮ್ಮ {int(tonnes)} ಟನ್ ಗಾಡಿ ನೋಂದಾಯಿಸಲಾಗಿದೆ. ಹೊಸ ಲೋಡ್ ಸಿಕ್ಕ ತಕ್ಷಣ ತಿಳಿಸುತ್ತೇವೆ."
-                else:
-                    return f"Recorded your {int(tonnes)}-tonne truck for {dest}. We will notify you once a load is available."
+                return f"Thank you! Your {int(tonnes)}-tonne truck for {dest} has been registered. We will find a matching load and call you back in a few minutes. [HANGUP]"
 
     async def text_to_speech_pcm(self, text: str) -> bytes:
-        lang_code = "kn-IN" if self.language == "kn" else ("hi-IN" if self.language == "hi" else "en-IN")
+        indic_codes = {
+            "kn": "kn-IN",
+            "hi": "hi-IN",
+            "mr": "mr-IN",
+            "te": "te-IN",
+            "ta": "ta-IN",
+            "gu": "gu-IN",
+            "bn": "bn-IN",
+            "ml": "ml-IN",
+            "en": "en-IN"
+        }
+        lang_code = indic_codes.get(self.language, "kn-IN")
 
         # 1. Primary: Gnani Timbre Neural Indic TTS (Native 8000Hz PCM)
         try:
@@ -672,11 +663,18 @@ class VoicePipeline:
             pass
 
         # 2. Resilient Fallback: Edge TTS
-        voice = "kn-IN-GaganNeural"
-        if self.language == "hi":
-            voice = "hi-IN-MadhurNeural"
-        elif self.language == "en":
-            voice = "en-IN-PrabhatNeural"
+        voice_map = {
+            "kn": "kn-IN-GaganNeural",
+            "hi": "hi-IN-MadhurNeural",
+            "mr": "mr-IN-AarohiNeural",
+            "te": "te-IN-MohanNeural",
+            "ta": "ta-IN-ValluvarNeural",
+            "gu": "gu-IN-NiranjanNeural",
+            "bn": "bn-IN-BashkarNeural",
+            "ml": "ml-IN-MidhunNeural",
+            "en": "en-IN-PrabhatNeural",
+        }
+        voice = voice_map.get(self.language, "kn-IN-GaganNeural")
 
         communicate = edge_tts.Communicate(text, voice, rate="+2%")
         mp3_buffer = b""

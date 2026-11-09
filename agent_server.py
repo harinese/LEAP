@@ -334,6 +334,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 else:
                                     logger.info(f"Caller Said: {recognized_text}")
                                     db_manager.save_utterance(call_sid, "caller", recognized_text)
+                                    pipeline.extract_entities(recognized_text)
 
                                     # Primary: Gemini Conversational Brain (Dynamic, creative, all Indian languages)
                                     gemini_reply = ""
@@ -350,13 +351,73 @@ async def websocket_endpoint(websocket: WebSocket):
                                     if not gemini_reply:
                                         agent_reply = pipeline.process_turn(recognized_text)
 
+                                # Check for hangup signal
+                                should_hangup = False
+                                if "[HANGUP]" in agent_reply:
+                                    should_hangup = True
+                                    agent_reply = agent_reply.replace("[HANGUP]", "").strip()
+                                elif "[hangup]" in agent_reply.lower():
+                                    should_hangup = True
+                                    agent_reply = re.sub(r'\[hangup\]', '', agent_reply, flags=re.IGNORECASE).strip()
+
                                 logger.info(f"Agent Reply: {agent_reply}")
                                 db_manager.save_utterance(call_sid, "agent", agent_reply)
 
+                                # Persist load/truck in DB if concluding call
+                                if should_hangup:
+                                    try:
+                                        dest = pipeline.extracted_data.get("destination") or "ಬೆಂಗಳೂರು"
+                                        tonnes = float(pipeline.extracted_data.get("capacity") or 4.0)
+                                        if pipeline.role == "SHIPPER":
+                                            if not pipeline.current_load_id:
+                                                cargo = pipeline.extracted_data.get("cargo_type") or "General Goods"
+                                                shipper_name = pipeline.extracted_data.get("name") or "ವ್ಯಾಪಾರಿ"
+                                                max_budget = float(pipeline.extracted_data.get("price") or 0.0)
+                                                pipeline.current_load_id = db_manager.register_load(
+                                                    phone=caller_phone or "+919448011999",
+                                                    destination=dest,
+                                                    weight=tonnes,
+                                                    cargo=cargo,
+                                                    shipper_name=shipper_name,
+                                                    max_budget=max_budget,
+                                                    call_sid=call_sid
+                                                )
+                                                logger.info(f"Persisted load #{pipeline.current_load_id} for {caller_phone}")
+                                        else:
+                                            if not pipeline.current_truck_id:
+                                                driver_name = pipeline.extracted_data.get("name") or "ಚಾಲಕ"
+                                                min_price = float(pipeline.extracted_data.get("price") or 0.0)
+                                                pipeline.current_truck_id = db_manager.register_truck(
+                                                    phone=caller_phone or "+919845012399",
+                                                    destination=dest,
+                                                    capacity=tonnes,
+                                                    truck_type=pipeline.extracted_data.get("vehicle_type", "Truck"),
+                                                    driver_name=driver_name,
+                                                    min_price=min_price,
+                                                    call_sid=call_sid
+                                                )
+                                                logger.info(f"Persisted truck #{pipeline.current_truck_id} for {caller_phone}")
+                                    except Exception as db_err:
+                                        logger.error(f"Error persisting on hangup: {db_err}")
 
                                 reply_pcm = await pipeline.text_to_speech_pcm(agent_reply)
                                 cancel_speech_event.clear()
-                                asyncio.create_task(play_audio_task(reply_pcm))
+
+                                if should_hangup:
+                                    logger.info(f"Call {call_sid}: Concluding call. Playing goodbye audio...")
+                                    await play_audio_task(reply_pcm)
+                                    # Allow Exotel telephony buffer to drain audio to caller PSTN
+                                    await asyncio.sleep(0.8)
+                                    logger.info(f"Terminating WebSocket connection for {call_sid}")
+                                    try:
+                                        await websocket.close()
+                                    except Exception:
+                                        pass
+                                    if call_sid:
+                                        db_manager.log_call_end(call_sid)
+                                    break
+                                else:
+                                    asyncio.create_task(play_audio_task(reply_pcm))
 
                             is_responding = False
 
