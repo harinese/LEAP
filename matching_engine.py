@@ -8,55 +8,133 @@ CORRIDORS = {
     "belagavi": {
         "canonical": "Belagavi",
         "distance_km": 98,
-        "base_rate_per_tonne": 420,
         "waypoints": ["dharwad", "kittur", "hirebagewadi", "belagavi"]
     },
     "davanagere": {
         "canonical": "Davanagere",
         "distance_km": 148,
-        "base_rate_per_tonne": 550,
-        "waypoints": ["kundgol", "shiggaon", "haveri", "ranibennur", "harihar", "davanagere"]
+        "waypoints": ["kundgol", "shiggaon", "haveri", "ranibennur", "harihar", "davanagere", "chitradurga"]
+    },
+    "chitradurga": {
+        "canonical": "Chitradurga",
+        "distance_km": 210,
+        "waypoints": ["kundgol", "shiggaon", "haveri", "ranibennur", "harihar", "davanagere", "chitradurga", "tumakuru", "bengaluru"]
     },
     "bengaluru": {
         "canonical": "Bengaluru",
         "distance_km": 412,
-        "base_rate_per_tonne": 1150,
+        "waypoints": ["haveri", "davanagere", "chitradurga", "tumakuru", "bengaluru"]
+    },
+    "haveri": {
+        "canonical": "Haveri",
+        "distance_km": 75,
+        "waypoints": ["kundgol", "shiggaon", "haveri", "ranibennur", "davanagere", "chitradurga", "bengaluru"]
+    },
+    "gadag": {
+        "canonical": "Gadag",
+        "distance_km": 58,
+        "waypoints": ["annigeri", "gadag", "koppal"]
+    },
+    "ballari": {
+        "canonical": "Ballari",
+        "distance_km": 185,
+        "waypoints": ["annigeri", "gadag", "koppal", "hospet", "ballari"]
+    },
+    "shivamogga": {
+        "canonical": "Shivamogga",
+        "distance_km": 195,
+        "waypoints": ["shiggaon", "haveri", "hirekerur", "shikaripura", "shivamogga"]
+    },
+    "mangaluru": {
+        "canonical": "Mangaluru",
+        "distance_km": 360,
+        "waypoints": ["sirsi", "kumta", "bhatkal", "kundapura", "udupi", "mangaluru"]
+    },
+    "tumakuru": {
+        "canonical": "Tumakuru",
+        "distance_km": 340,
         "waypoints": ["haveri", "davanagere", "chitradurga", "tumakuru", "bengaluru"]
     },
     "pune": {
         "canonical": "Pune",
         "distance_km": 438,
-        "base_rate_per_tonne": 1220,
         "waypoints": ["belagavi", "kolhapur", "karad", "satara", "pune"]
     },
     "bagalkot": {
         "canonical": "Bagalkot",
         "distance_km": 132,
-        "base_rate_per_tonne": 510,
         "waypoints": ["navalgund", "nargund", "kerur", "bagalkot"]
     },
     "goa": {
         "canonical": "Goa",
         "distance_km": 178,
-        "base_rate_per_tonne": 690,
         "waypoints": ["dharwad", "alnavar", "ramnagar", "anmod", "ponda", "panaji"]
+    },
+    "mumbai": {
+        "canonical": "Mumbai",
+        "distance_km": 980,
+        "waypoints": ["belagavi", "kolhapur", "pune", "thane", "navi mumbai", "mumbai"]
+    },
+    "hyderabad": {
+        "canonical": "Hyderabad",
+        "distance_km": 570,
+        "waypoints": ["koppal", "ballari", "kurnool", "mahabubnagar", "hyderabad"]
+    },
+    "chennai": {
+        "canonical": "Chennai",
+        "distance_km": 350,
+        "waypoints": ["hosur", "krishnagiri", "vellore", "chennai"]
+    },
+    "delhi": {
+        "canonical": "Delhi",
+        "distance_km": 2150,
+        "waypoints": ["pune", "indore", "gwalior", "agra", "gurugram", "delhi"]
+    },
+    "ahmedabad": {
+        "canonical": "Ahmedabad",
+        "distance_km": 1480,
+        "waypoints": ["belagavi", "pune", "mumbai", "surat", "vadodara", "ahmedabad"]
     }
 }
 
 def normalize_city(city: str) -> str:
     c = city.strip().lower()
-    if "bangalore" in c or "bengaluru" in c or "ಬೆಂಗಳೂರು" in c:
+    if "bangalore" in c or "bengaluru" in c or "ಬೆಂಗಳೂರು" in c or "ಬೆಂಗಳೂರ" in c:
         return "bengaluru"
+    if "chitradurga" in c or "ಚಿತ್ರದುರ್ಗ" in c:
+        return "chitradurga"
     if "belgaum" in c or "belagavi" in c or "ಬೆಳಗಾವಿ" in c:
         return "belagavi"
     if "davangere" in c or "davanagere" in c or "ದಾವಣಗೆರೆ" in c:
         return "davanagere"
     if "pune" in c or "poona" in c or "ಪುಣೆ" in c:
         return "pune"
-    if "bagalkot" in c or "ಬಾಗಲಕೋಟೆ" in c:
+    if "bagalkot" in c or "ಬಾಗಲಕೋಟೆ" in c or "ಬಾಗಲಕೋಟ" in c:
         return "bagalkot"
     if "goa" in c or "panaji" in c or "ಗೋವಾ" in c:
         return "goa"
+    if "haveri" in c or "ಹಾವೇರಿ" in c:
+        return "haveri"
+    if "gadag" in c or "ಗದಗ" in c:
+        return "gadag"
+    if "ballari" in c or "bellary" in c or "ಬಳ್ಳಾರಿ" in c:
+        return "ballari"
+    if "shivamogga" in c or "shimoga" in c or "ಶಿವಮೊಗ್ಗ" in c:
+        return "shivamogga"
+    if "mangaluru" in c or "mangalore" in c or "ಮಂಗಳೂರು" in c:
+        return "mangaluru"
+    if "tumakuru" in c or "tumkur" in c or "ತುಮಕೂರು" in c:
+        return "tumakuru"
+    if "mumbai" in c or "bombay" in c or "ಮುಂಬೈ" in c or "ಮುಂಬಯಿ" in c:
+        return "mumbai"
+    if "hyderabad" in c or "ಹೈದರಾಬಾದ್" in c:
+        return "hyderabad"
+    if "chennai" in c or "madras" in c or "ಚೆನ್ನೈ" in c or "ಮದ್ರಾಸ್" in c:
+        return "chennai"
+    if "delhi" in c or "ದೆಹಲಿ" in c or "ದಿಲ್ಲಿ" in c:
+        return "delhi"
+    if "ahmedabad" in c or "ಅಹಮದಾಬಾದ್" in c:
+        return "ahmedabad"
     return c
 
 def compute_route_similarity(truck_dest: str, load_dest: str) -> float:
@@ -92,25 +170,17 @@ def compute_capacity_similarity(truck_cap: float, load_weight: float) -> float:
     return 0.90
 
 def calculate_return_price(destination: str, weight: float, driver_min: float = 0, shipper_budget: float = 0) -> float:
-    key = normalize_city(destination)
-    corridor = CORRIDORS.get(key)
-    if corridor:
-        standard_rate = weight * corridor["base_rate_per_tonne"]
-        # Return freight discount: 22% below regular outbound rate
-        discounted = round(standard_rate * 0.78 / 100) * 100
-    else:
-        discounted = round((weight * 650 + 1500) / 100) * 100
+    # 1. Primary Marketplace Rule: The lister decides the price!
+    # If the shipper listed a load with a budget/price, that exact budget is the deal price.
+    if shipper_budget > 0 and driver_min > 0:
+        return float(shipper_budget if shipper_budget >= driver_min else driver_min)
+    if shipper_budget > 0:
+        return float(shipper_budget)
+    if driver_min > 0:
+        return float(driver_min)
 
-    if driver_min > 0 and shipper_budget > 0:
-        if driver_min <= shipper_budget:
-            return round((driver_min + shipper_budget) / 2)
-        return driver_min
-    elif driver_min > 0:
-        return max(driver_min, discounted)
-    elif shipper_budget > 0:
-        return min(shipper_budget, discounted)
-
-    return discounted
+    # 2. If neither caller specified a fixed price, rate is negotiable
+    return 0.0
 
 def find_best_load_for_truck(destination: str, capacity: float, min_price: float = 0) -> Optional[Dict[str, Any]]:
     db_manager.expire_stale_records()
@@ -212,7 +282,7 @@ def find_best_truck_for_load(destination: str, weight: float, max_budget: float 
 
 def create_match_record(truck_id: int, load_id: int, route_score: float, capacity_score: float,
                         overall_score: float, agreed_price: float) -> Dict[str, Any]:
-    token = f"RET-{random.randint(1000, 9999)}"
+    token = f"NFX-{random.randint(1000, 9999)}"
     conn = db_manager.get_connection()
     cursor = conn.cursor()
     cursor.execute("""

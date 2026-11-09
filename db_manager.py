@@ -151,6 +151,7 @@ def seed_inventory(conn: sqlite3.Connection):
         ("+919448011223", "Mallikarjun Traders", "Bellary Red Onions", 14.0, "APMC Shed 9", "Belagavi", "Today 17:30", 6500),
         ("+919448011224", "Annapurna Agro", "Pressed Cotton Bales", 22.0, "Tarihal Agro Godown", "Bengaluru", "Today 21:00", 25000),
         ("+919448011225", "Ningappa Pujar", "Maize Grains", 18.0, "Platform 3", "Pune", "Tomorrow 06:00", 23000),
+        ("+919448011226", "Mallikarjun Traders", "Red Onions", 10.0, "APMC Shed 12", "Chitradurga", "Today 20:00", 6800),
     ]
     cursor.executemany("""
         INSERT INTO loads (phone, shipper_name, cargo_type, weight_tonnes, pickup_location, destination, ready_time, max_budget)
@@ -161,6 +162,7 @@ def seed_inventory(conn: sqlite3.Connection):
         ("+919845012341", "Manjunath Patil", "10-Wheeler Open Body", 16.0, "APMC Gate 1", "Belagavi", "Today 18:00", 5000),
         ("+919845012342", "Suresh Gowda", "6-Wheeler 17ft", 9.0, "Weighbridge 2", "Davanagere", "Today 19:00", 4500),
         ("+919845012343", "Basavaraj Hiremath", "12-Wheeler 24T", 24.0, "APMC Platform 1", "Bengaluru", "Today 20:30", 18000),
+        ("+919845012344", "Praveen Kumar", "6-Wheeler 10T", 10.0, "APMC Gate 3", "Chitradurga", "Today 20:00", 6200),
     ]
     cursor.executemany("""
         INSERT INTO trucks (phone, driver_name, truck_type, capacity_tonnes, current_location, destination, departure_time, min_price)

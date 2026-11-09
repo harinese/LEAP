@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import io
 import math
 import re
@@ -12,6 +13,7 @@ import miniaudio
 import speech_recognition as sr
 import db_manager
 import matching_engine
+import gnani_client
 
 KANNADA_NUMBERS = {
     "ಒಂದು": 1, "ಎರಡು": 2, "ಮೂರು": 3, "ನಾಲ್ಕು": 4, "ಐದು": 5,
@@ -28,6 +30,76 @@ HINDI_NUMBERS = {
     "सोलह": 16, "सत्रह": 17, "अठारह": 18, "उन्नीस": 19, "बीस": 20,
     "पच्चीस": 25, "तीस": 30
 }
+
+DESTINATION_KEYWORDS = {
+    "Bengaluru": ["ಬೆಂಗಳೂರ", "ಬೆಂಗಳೂರು", "bangalore", "bengaluru"],
+    "Chitradurga": ["ಚಿತ್ರದುರ್ಗ", "chitradurga", "chithradurga"],
+    "Davanagere": ["ದಾವಣಗೆರೆ", "davanagere", "davangere"],
+    "Belagavi": ["ಬೆಳಗಾವಿ", "belgaum", "belagavi"],
+    "Haveri": ["ಹಾವೇರಿ", "haveri"],
+    "Gadag": ["ಗದಗ", "gadag"],
+    "Ballari": ["ಬಳ್ಳಾರಿ", "ballari", "bellary"],
+    "Shivamogga": ["ಶಿವಮೊಗ್ಗ", "shivamogga", "shimoga"],
+    "Bagalkot": ["ಬಾಗಲಕೋಟ", "ಬಾಗಲಕೋಟೆ", "bagalkot", "bagalkote"],
+    "Mangaluru": ["ಮಂಗಳೂರ", "ಮಂಗಳೂರು", "mangaluru", "mangalore"],
+    "Mysuru": ["ಮೈಸೂರ", "ಮೈಸೂರು", "mysuru", "mysore"],
+    "Tumakuru": ["ತುಮಕೂರ", "ತುಮಕೂರು", "tumakuru", "tumkur"],
+    "Raichur": ["ರಾಯಚೂರ", "ರಾಯಚೂರು", "raichur"],
+    "Koppal": ["ಕೊಪ್ಪಳ", "koppal"],
+    "Vijayapura": ["ವಿಜಯಪುರ", "ಬಿಜಾಪುರ", "vijayapura", "bijapur"],
+    "Kalaburagi": ["ಕಲಬುರಗಿ", "ಗುಲ್ಬರ್ಗ", "kalaburagi", "gulbarga"],
+    "Hassan": ["ಹಾಸನ", "hassan"],
+    "Udupi": ["ಉಡುಪಿ", "udupi"],
+    "Karwar": ["ಕಾರವಾರ", "ಅಂಕೋಲಾ", "karwar"],
+    "Hubballi": ["ಹುಬ್ಬಳ್ಳಿ", "ಧಾರವಾಡ", "hubballi", "hubli", "dharwad"],
+    "Pune": ["ಪುಣೆ", "pune", "poona"],
+    "Goa": ["ಗೋವಾ", "ಪಣಜಿ", "goa", "panaji"],
+    "Mumbai": ["ಮುಂಬೈ", "ಮುಂಬಯಿ", "mumbai", "bombay"],
+    "Hyderabad": ["ಹೈದರಾಬಾದ್", "hyderabad"],
+    "Chennai": ["ಚೆನ್ನೈ", "ಮದ್ರಾಸ್", "chennai"],
+    "Delhi": ["ದೆಹಲಿ", "ದಿಲ್ಲಿ", "delhi", "new delhi"],
+    "Ahmedabad": ["ಅಹಮದಾಬಾದ್", "ahmedabad", "amdavad"],
+    "Kolkata": ["ಕೋಲ್ಕತ್ತಾ", "ಕಲ್ಕತ್ತಾ", "kolkata", "calcutta"],
+}
+
+DEST_DISPLAY_KN = {
+    "Bengaluru": "ಬೆಂಗಳೂರು",
+    "Chitradurga": "ಚಿತ್ರದುರ್ಗ",
+    "Davanagere": "ದಾವಣಗೆರೆ",
+    "Belagavi": "ಬೆಳಗಾವಿ",
+    "Haveri": "ಹಾವೇರಿ",
+    "Gadag": "ಗದಗ",
+    "Ballari": "ಬಳ್ಳಾರಿ",
+    "Shivamogga": "ಶಿವಮೊಗ್ಗ",
+    "Bagalkot": "ಬಾಗಲಕೋಟೆ",
+    "Mangaluru": "ಮಂಗಳೂರು",
+    "Mysuru": "ಮೈಸೂರು",
+    "Tumakuru": "ತುಮಕೂರು",
+    "Raichur": "ರಾಯಚೂರು",
+    "Koppal": "ಕೊಪ್ಪಳ",
+    "Vijayapura": "ವಿಜಯಪುರ",
+    "Kalaburagi": "ಕಲಬುರಗಿ",
+    "Hassan": "ಹಾಸನ",
+    "Udupi": "ಉಡುಪಿ",
+    "Karwar": "ಕಾರವಾರ",
+    "Hubballi": "ಹುಬ್ಬಳ್ಳಿ",
+    "Pune": "ಪುಣೆ",
+    "Goa": "ಗೋವಾ",
+    "Mumbai": "ಮುಂಬೈ",
+    "Hyderabad": "ಹೈದರಾಬಾದ್",
+    "Chennai": "ಚೆನ್ನೈ",
+    "Delhi": "ದೆಹಲಿ",
+    "Ahmedabad": "ಅಹಮದಾಬಾದ್",
+    "Kolkata": "ಕೋಲ್ಕತ್ತಾ",
+}
+
+def get_destination_display(dest: str, lang: str = "kn") -> str:
+    if not dest:
+        return "ಬೆಂಗಳೂರು" if lang == "kn" else "Bengaluru"
+    if lang == "kn":
+        return DEST_DISPLAY_KN.get(dest, dest)
+    return dest
+
 
 def detect_language(text: str) -> str:
     for ch in text:
@@ -72,7 +144,7 @@ class VoicePipeline:
         self.current_match: Optional[Dict[str, Any]] = None
         self.is_callback_flow = False
         self.extracted_data: Dict[str, Any] = {
-            "origin": "APMC Amargol",
+            "origin": "Bengaluru",
             "destination": "",
             "capacity": None,
             "cargo_type": None,
@@ -122,14 +194,28 @@ class VoicePipeline:
         if len(pcm_data) < 3200:
             return ""
 
+        primary_lang = "kn-IN" if self.language == "kn" else ("hi-IN" if self.language == "hi" else "en-IN")
+
+        # 1. Primary: Gnani Prisma STT (v3.0)
+        try:
+            gnani_text = await gnani_client.transcribe_gnani(pcm_data, language_code=primary_lang)
+            if gnani_text and len(gnani_text.strip()) > 1:
+                transcription = gnani_text.strip()
+                self.language = detect_language(transcription)
+                return transcription
+        except Exception:
+            pass
+
+        # 2. Resilient Fallback: Google Speech Recognition
         normalized_data = normalize_pcm(pcm_data)
         audio = sr.AudioData(normalized_data, 8000, 2)
         transcription = ""
+        fallback_langs = ["kn-IN", "hi-IN", "en-IN"]
+        langs_to_try = [primary_lang] + [l for l in fallback_langs if l != primary_lang]
 
-        # Try Google Multi-lingual Speech API with Indic priority
-        for lang_code in ["kn-IN", "hi-IN", "en-IN"]:
+        for lang_code in langs_to_try:
             try:
-                text = self.recognizer.recognize_google(audio, language=lang_code)
+                text = await asyncio.to_thread(self.recognizer.recognize_google, audio, language=lang_code)
                 if text and len(text.strip()) > 1:
                     transcription = text.strip()
                     self.language = detect_language(transcription)
@@ -142,25 +228,52 @@ class VoicePipeline:
     def extract_entities(self, text: str):
         lower = text.lower()
 
-        # Origin identification
-        if any(w in text for w in ["ಹುಬ್ಬಳ್ಳಿ", "ಅಮರಗೋಳ", "ಧಾರವಾಡ"]) or any(w in lower for w in ["hubballi", "hubli", "amargol"]):
-            self.extracted_data["origin"] = "APMC Amargol"
+        # Origin identification (National Corridors)
+        ORIGIN_PATTERNS = {
+            "Bengaluru": ["ಬೆಂಗಳೂರಿನಿಂದ", "ಬೆಂಗಳೂರಿಂದ", "from bangalore", "from bengaluru"],
+            "Mumbai": ["ಮುಂಬೈನಿಂದ", "from mumbai", "from bombay"],
+            "Pune": ["ಪುಣೆಯಿಂದ", "from pune"],
+            "Delhi": ["ದೆಹಲಿಯಿಂದ", "ದಿಲ್ಲಿಯಿಂದ", "from delhi"],
+            "Hyderabad": ["ಹೈದರಾಬಾದ್‌ನಿಂದ", "ಹೈದರಾಬಾದಿಂದ", "from hyderabad"],
+            "Chennai": ["ಚೆನ್ನೈನಿಂದ", "from chennai"],
+            "Hubballi": ["ಹುಬ್ಬಳ್ಳಿಯಿಂದ", "ಧಾರವಾಡದಿಂದ", "from hubballi", "from hubli", "ಅಮರಗೋಳದಿಂದ"],
+            "Davanagere": ["ದಾವಣಗೆರೆಯಿಂದ", "from davanagere"],
+            "Belagavi": ["ಬೆಳಗಾವಿಯಿಂದ", "from belagavi", "from belgaum"],
+        }
+        for city, patterns in ORIGIN_PATTERNS.items():
+            if any(p in text or p in lower for p in patterns):
+                self.extracted_data["origin"] = city
+                break
 
         # Destination extraction
-        if "ಬೆಂಗಳೂರ" in text or "ಬೆಂಗಳೂರು" in text or "bangalore" in lower or "bengaluru" in lower:
-            self.extracted_data["destination"] = "Bengaluru"
-        elif "ಬೆಳಗಾವಿ" in text or "belgaum" in lower or "belagavi" in lower:
-            self.extracted_data["destination"] = "Belagavi"
-        elif "ದಾವಣಗೆರೆ" in text or "davanagere" in lower or "davangere" in lower:
-            self.extracted_data["destination"] = "Davanagere"
-        elif "ಪುಣೆ" in text or "pune" in lower or "poona" in lower:
-            self.extracted_data["destination"] = "Pune"
-        elif "ಬಾಗಲಕೋಟ" in text or "ಬಾಗಲಕೋಟೆ" in text or "bagalkot" in lower:
-            self.extracted_data["destination"] = "Bagalkot"
-        elif "ಗೋವಾ" in text or "goa" in lower:
-            self.extracted_data["destination"] = "Goa"
-        elif "ಹಾವೇರಿ" in text or "haveri" in lower:
-            self.extracted_data["destination"] = "Haveri"
+        found_dest = False
+        for canonical, keywords in DESTINATION_KEYWORDS.items():
+            if any(k in text or k in lower for k in keywords):
+                self.extracted_data["destination"] = canonical
+                found_dest = True
+                break
+
+        # Fallback when caller answers in ROUTE_SELECTION and city is not in predefined list
+        if not found_dest and not self.extracted_data.get("destination") and self.state == "ROUTE_SELECTION":
+            cleaned = text
+            stopwords = [
+                "ನಮಸ್ಕಾರ", "ರೀ", "ಹಲೋ", "ಸರ್", "ನಮಸ್ತೆ", "hello", "hi",
+                "ಹೋಗಬೇಕು", "ಹೋಗ್ಬೇಕು", "ಹೋಗುವುದು", "ಹೋಗಿ", "ಕಳಿಸಬೇಕು", "ಕಳಿಸಬೇಕಾಗಿದೆ",
+                "ಲೋಡ್", "ಗಾಡಿ", "ಲಾರಿ", "ಟ್ರಕ್", "ಇದೆ", "ಬೇಕು", "ಐತಿ",
+                "jana hai", "bhejna", "hai", "chahiye", "to", "send", "going"
+            ]
+            for sw in stopwords:
+                cleaned = re.sub(rf'\b{re.escape(sw)}\b', ' ', cleaned, flags=re.IGNORECASE)
+                cleaned = cleaned.replace(sw, ' ')
+
+            # Strip trailing Kannada case markers: -ಕ್ಕೆ, -ಗೆ, -ಅಲ್ಲಿಗೆ, -ಕಡೆಗೆ, -ಕಡೆ
+            cleaned = re.sub(r'(?:ಕ್ಕೆ|ಗೆ|ಅಲ್ಲಿಗೆ|ಕಡೆಗೆ|ಕಡೆ)$', '', cleaned.strip()).strip()
+
+            tokens = [w.strip() for w in re.split(r'[\s,]+', cleaned) if len(w.strip()) >= 2]
+            if tokens:
+                cand = tokens[0]
+                if not re.search(r'\d', cand) and cand.lower() not in ["yes", "no", "ok", "sari", "houdu"]:
+                    self.extracted_data["destination"] = cand.capitalize()
 
         # Vehicle Type extraction
         if any(w in text for w in ["ಹತ್ತು ಚಕ್ರ", "10 ಚಕ್ರ"]) or "10 wheeler" in lower:
@@ -171,9 +284,10 @@ class VoicePipeline:
             self.extracted_data["vehicle_type"] = "6-Wheeler"
             if not self.extracted_data["capacity"]:
                 self.extracted_data["capacity"] = 9.0
-        elif "ಐಷರ್" in text or "eicher" in lower or "4 tonne" in lower or "4 ಟನ್" in text:
+        elif "ಐಷರ್" in text or "eicher" in lower:
             self.extracted_data["vehicle_type"] = "Eicher 14ft"
-            self.extracted_data["capacity"] = 4.0
+            if not self.extracted_data["capacity"]:
+                self.extracted_data["capacity"] = 4.0
 
         # Spoken numbers conversion
         for word, val in KANNADA_NUMBERS.items():
@@ -193,11 +307,11 @@ class VoicePipeline:
             except ValueError:
                 pass
 
-        tonne_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:ಟನ್|ton|tonne|tonnes|t)?', text, re.IGNORECASE)
-        if tonne_match and not self.extracted_data.get("capacity"):
+        tonne_explicit = re.search(r'(\d+(?:\.\d+)?)\s*(?:ಟನ್|ton|tonne|tonnes)', text, re.IGNORECASE)
+        if tonne_explicit:
             try:
-                val = float(tonne_match.group(1))
-                if 1.0 <= val <= 50.0:
+                val = float(tonne_explicit.group(1))
+                if 0.5 <= val <= 60.0:
                     self.extracted_data["capacity"] = val
             except ValueError:
                 pass
@@ -237,16 +351,8 @@ class VoicePipeline:
             cand = name_match.group(1).strip()
             if cand.lower() not in ["truck", "lorry", "gaadi", "load", "driver", "vyapari", "raita", "malu", "agri"]:
                 self.extracted_data["name"] = cand.capitalize()
-        elif not self.extracted_data.get("name") and self.state == "NAME_RATE_COLLECTION":
-            words = [w for w in re.split(r'[\s,]+', text) if w and not re.search(r'\d', w)]
-            ignore = ["truck", "lorry", "gaadi", "load", "driver", "vyapari", "raita", "malu", "agri",
-                      "rate", "rupaye", "rs", "beku", "kodtini", "yes", "no", "sari", "houdu", "ha",
-                      "theek", "bhejna", "chahiye", "tonne", "ton"]
-            valid_words = [w for w in words if w.lower() not in ignore and len(w) >= 2]
-            if valid_words:
-                self.extracted_data["name"] = valid_words[0].capitalize()
 
-        # Price / Budget extraction (e.g. "8000 rate", "5000 ಬಾಡಿಗೆ", "Rs 18000")
+        # Price / Budget extraction
         rate_explicit = re.search(r'(?:rate|price|ಬಾಡಿಗೆ|kiraya|ಕಿರಾ|rs|ರೂ)\s*(?:is|of|ide|beku|kodtini)?\s*(\d{3,6})', text, re.IGNORECASE)
         price_explicit = re.search(r'(\d{3,6})\s*(?:rate|price|rs|rupees|ರೂಪಾಯಿ|ರೂ|ಬಾಡಿಗೆ|rupaye|kiraya|ಕಿರಾ|ಕೊಡ್ತೀನಿ|ಬೇಕು)', text, re.IGNORECASE)
         if rate_explicit:
@@ -260,7 +366,6 @@ class VoicePipeline:
             except ValueError:
                 pass
         elif not self.extracted_data.get("price"):
-            # Standalone 3-6 digit number check
             standalone_num = re.search(r'\b(\d{3,6})\b', text)
             if standalone_num:
                 val = float(standalone_num.group(1))
@@ -270,11 +375,20 @@ class VoicePipeline:
     def is_affirmative(self, text: str) -> bool:
         lower = text.lower()
         affirmative_words = [
-            "ಹೌದು", "ಸರಿ", "ಒಪ್ಪುತ್ತೇನೆ", "ಆಯ್ತು", "ಮಾಡಿ", "ಖಂಡಿತ", "ಹಾ", "ಹೌದ್ರಿ", "ಆಯ್ತ್ರಿ",
+            "ಹೌದು", "ಸರಿ", "ಒಪ್ಪುತ್ತೇನೆ", "ಆಯ್ತು", "ಮಾಡಿ", "ಖಂಡಿತ", "ಹಾ", "ಹೌದ್ರಿ", "ಆಯ್ತ್ರಿ", "ಪಕ್ಕಾ",
             "हाँ", "हा", "पक्का", "ठीक", "कर दो", "चलेगा", "मंजूर",
             "yes", "ok", "okay", "agree", "confirm", "done", "sure", "fine"
         ]
         return any(w in lower or w in text for w in affirmative_words)
+
+    def is_negative(self, text: str) -> bool:
+        lower = text.lower()
+        negative_words = [
+            "ಬೇಡ", "ಇಲ್ಲ", "ಕ್ಯಾನ್ಸಲ್", "ಬೇಡ್ರಿ", "ಇಲ್ಲ್ರಿ",
+            "नहीं", "ना", "मत करो", "कैंसिल",
+            "no", "nope", "cancel", "dont", "don't"
+        ]
+        return any(w in lower or w in text for w in negative_words)
 
     def process_turn(self, user_text: str) -> str:
         lang = self.language
@@ -318,7 +432,7 @@ class VoicePipeline:
                 else:
                     return "Understood. Which other destination are you looking for?"
 
-        # Check if caller is confirming or rejecting an offered deal
+        # 2. Check if caller is confirming or rejecting an offered deal
         if self.state == "DEAL_OFFER":
             if self.is_affirmative(user_text) and self.current_match:
                 self.state = "COMPLETED"
@@ -351,78 +465,101 @@ class VoicePipeline:
                         return f"बधाई हो जी! आपकी डील पक्की हो गई। गेट पास टोकन {token} है। व्यापारी {shipper}, उनका फोन {phone} है। धन्यवाद!"
                     else:
                         return f"Deal confirmed! Gate pass token is {token}. Trader {shipper}, phone {phone}. Thank you!"
-            else:
-                self.state = "COMPLETED"
+            elif self.is_negative(user_text):
+                self.state = "ROUTE_SELECTION"
+                self.extracted_data["destination"] = ""
+                self.extracted_data["capacity"] = None
+                self.current_match = None
                 if lang == "kn":
-                    return "ಸರಿ ರೀ. ನಿಮಗೆ ಬೇಕಾದಾಗ ಮತ್ತೆ ಕರೆ ಮಾಡಿ. ಶುಭ ದಿನ!"
+                    return "ಸರಿ ರೀ. ನಿಮಗೆ ಬೇರೆ ಯಾವ ಊರಿಗೆ ಲೋಡ್ ಬೇಕು ಅಂತ ಹೇಳಿ."
+                elif lang == "hi":
+                    return "जी ठीक है। आपको किस दूसरे शहर के लिए लोड चाहिए?"
                 else:
-                    return "Understood. Call back anytime when you are ready. Have a good day!"
+                    return "Understood. Which other destination are you looking for?"
+            else:
+                if lang == "kn":
+                    return "ಡೀಲ್ ಪಕ್ಕಾ ಮಾಡಲು 'ಸರಿ' ಅಥವಾ 'ಹೌದು' ಎನ್ನಿ ರೀ. ಬೇರೆ ಊರಿಗೆ ಬೇಕಿದ್ದರೆ ಊರಿನ ಹೆಸರು ಹೇಳಿ."
+                elif lang == "hi":
+                    return "डील पक्की करने के लिए 'हाँ' या 'ठीक है' बोलिए, या दूसरे शहर का नाम बताएं।"
+                else:
+                    return "To confirm the deal please say 'yes' or 'confirm', or name another city."
+
+        # 2.5 Handle PRICE_COLLECTION state: shipper is telling us their price
+        if self.state == "PRICE_COLLECTION":
+            self.extract_entities(user_text)
+            price = self.extracted_data.get("price")
+            if not price:
+                if lang == "kn":
+                    return "ಬಾಡಿಗೆ ಎಷ್ಟು ಕೊಡ್ತೀರಿ ಅಂತ ಹೇಳಿ ರೀ? ಉದಾಹರಣೆಗೆ 5000 ರೂಪಾಯಿ ಅಥವಾ 15000 ರೂಪಾಯಿ."
+                elif lang == "hi":
+                    return "किराया कितना देंगे बताइए? जैसे 5000 रुपये या 15000 रुपये।"
+                else:
+                    return "Please tell me the rate you are offering. For example, 5000 rupees or 15000 rupees."
+            # Price collected, now proceed to section 5 matching
+            self.state = "ROUTE_SELECTION"
+
+        # 2.5 Handle PRICE_COLLECTION state: shipper is telling us their price
+        if self.state == "PRICE_COLLECTION":
+            self.extract_entities(user_text)
+            price = self.extracted_data.get("price")
+            if not price:
+                if lang == "kn":
+                    return "ಬಾಡಿಗೆ ಎಷ್ಟು ಕೊಡ್ತೀರಿ ಅಂತ ಹೇಳಿ ರೀ? ಉದಾಹರಣೆಗೆ 5000 ರೂಪಾಯಿ ಅಥವಾ 15000 ರೂಪಾಯಿ."
+                elif lang == "hi":
+                    return "किराया कितना देंगे बताइए? जैसे 5000 रुपये या 15000 रुपये।"
+                else:
+                    return "Please tell me the rate you are offering. For example, 5000 rupees or 15000 rupees."
+            # Price collected, now proceed to section 5 matching
+            self.state = "ROUTE_SELECTION"
 
         self.extract_entities(user_text)
         dest = self.extracted_data.get("destination")
         cap = self.extracted_data.get("capacity")
 
-        # 1. Route destination check
+        # 3. Route destination check
         if not dest:
             self.state = "ROUTE_SELECTION"
             if lang == "kn":
-                return "ಸರಿ ರೀ. ಹುಬ್ಬಳ್ಳಿಯಿಂದ ಯಾವ ಊರಿಗೆ ಹೋಗಬೇಕು ಅಥವಾ ಎಲ್ಲಿಗೆ ಲೋಡ್ ಕಳಿಸಬೇಕು ಅಂತ ಹೇಳಿ."
+                return "ಸರಿ ರೀ. ಯಾವ ಊರಿನಿಂದ ಯಾವ ಊರಿಗೆ ಹೋಗಬೇಕು ಅಥವಾ ಎಲ್ಲಿಗೆ ಲೋಡ್ ಕಳಿಸಬೇಕು ಅಂತ ಹೇಳಿ."
             elif lang == "hi":
-                return "जी ठीक है। हुबली से किस शहर जाना है या कहाँ लोड भेजना है?"
+                return "जी ठीक है। किस शहर से किस शहर जाना है या कहाँ लोड भेजना है?"
             else:
-                return "Understood. Which destination city are you heading to or sending goods to?"
+                return "Understood. Which city are you heading to or sending goods to?"
 
-        # 2. Capacity / tonnage check
+        # 4. Capacity / tonnage check
         if not cap:
             self.state = "CAPACITY_CONFIRMATION"
-            target = dest or "ಬೆಂಗಳೂರು"
+            target = get_destination_display(dest, lang)
             if self.role == "SHIPPER":
                 if lang == "kn":
-                    return f"ಖಂಡಿತ ರೀ! {target} ಮಾರ್ಗಕ್ಕೆ ರಿಟರ್ನ್ ಗಾಡಿಗಳು ಲಭ್ಯವಿವೆ. ನಿಮ್ಮ ಬಳಿ ಎಷ್ಟು ಟನ್ ಮತ್ತು ಯಾವ ಮಾಲು ಇದೆ ರೀ?"
+                    return f"ಖಂಡಿತ ರೀ! {target} ಮಾರ್ಗಕ್ಕೆ ಗಾಡಿಗಳು ಲಭ್ಯವಿವೆ. ನಿಮ್ಮ ಬಳಿ ಎಷ್ಟು ಟನ್ ಮತ್ತು ಯಾವ ಮಾಲು ಇದೆ ರೀ?"
                 elif lang == "hi":
-                    return f"नमस्ते जी! {target} के लिए रिटर्न गाड़ियां उपलब्ध हैं। आपके पास कितना टन और क्या माल है?"
+                    return f"नमस्ते जी! {target} के लिए गाड़ियां उपलब्ध हैं। आपके पास कितना टन और क्या माल है?"
                 else:
-                    return f"Return trucks available for {target}. How many tonnes and what produce do you have to send?"
+                    return f"Trucks available for {target}. How many tonnes and what cargo do you have?"
             else:
                 if lang == "kn":
-                    return f"ಖಂಡಿತ ರೀ! ಹುಬ್ಬಳ್ಳಿಯಿಂದ {target}ಗೆ ಹೋಗಲು ಲೋಡ್ ರೆಡಿ ಇದೆ. ನಿಮ್ಮ ಗಾಡಿ ಎಷ್ಟು ಚಕ್ರದ್ರಿ? ಸಾಮರ್ಥ್ಯ ಎಷ್ಟು ಟನ್ ಐತಿ?"
+                    return f"ಖಂಡಿತ ರೀ! {target}ಗೆ ಹೋಗಲು ಲೋಡ್ ರೆಡಿ ಇದೆ. ನಿಮ್ಮ ಗಾಡಿ ಸಾಮರ್ಥ್ಯ ಎಷ್ಟು ಟನ್ ಐತಿ ರೀ?"
                 elif lang == "hi":
-                    return f"नमस्ते भाईसाहब! हुबली से {target} के लिए लोड तुरंत मिल जाएगा। आपकी गाड़ी कितने चक्के और कितने टन की है?"
+                    return f"नमस्ते भाईसाहब! {target} के लिए लोड तुरंत मिल जाएगा। आपकी गाड़ी कितने टन की है?"
                 else:
-                    return f"Sure! Ready loads available from Hubballi to {target}. What is your truck type and capacity in tonnes?"
+                    return f"Sure! Ready loads available for {target}. What is your truck capacity in tonnes?"
 
-        # 3. Name & Expected Price/Rate check
-        has_name = bool(self.extracted_data.get("name"))
-        has_price = bool(self.extracted_data.get("price"))
-
-        if self.state != "NAME_RATE_COLLECTION" and not (has_name and has_price):
-            self.state = "NAME_RATE_COLLECTION"
-            if not has_name and not has_price:
-                if lang == "kn":
-                    return "ಸರಿ ರೀ. ನಿಮ್ಮ ಹೆಸರು ಮತ್ತು ನೀವು ನಿರೀಕ್ಷಿಸುವ ಬಾಡಿಗೆ ದರ ಎಷ್ಟು ಅಂತ ಹೇಳ್ತೀರಾ?"
-                elif lang == "hi":
-                    return "जी ठीक है। आपका नाम और आपका अपेक्षित किराया कितना है, बता सकते हैं?"
-                else:
-                    return "Understood. Could you please share your name and your expected freight rate?"
-            elif not has_name:
-                if lang == "kn":
-                    return "ಸರಿ ರೀ. ನಿಮ್ಮ ಹೆಸರು ಏನು ಅಂತ ಹೇಳ್ತೀರಾ?"
-                elif lang == "hi":
-                    return "जी ठीक है। आपका शुभ नाम क्या है?"
-                else:
-                    return "Understood. May I know your name please?"
+        # 4.5 SHIPPER PRICE CHECK: If shipper has destination+capacity but no price, ask for it
+        if self.role == "SHIPPER" and not self.extracted_data.get("price"):
+            self.state = "PRICE_COLLECTION"
+            target = get_destination_display(dest, lang)
+            if lang == "kn":
+                return f"ಸರಿ ರೀ! {target}ಗೆ {int(float(cap))} ಟನ್ ಲೋಡ್ ಇದೆ ಅಂತ ಗೊತ್ತಾಯ್ತು. ಬಾಡಿಗೆ ಎಷ್ಟು ಕೊಡ್ತೀರಿ ಅಂತ ಹೇಳಿ ರೀ?"
+            elif lang == "hi":
+                return f"ठीक है जी! {target} के लिए {int(float(cap))} टन लोड समझ गया। किराया कितना देंगे बताइए?"
             else:
-                if lang == "kn":
-                    return "ಸರಿ ರೀ. ನೀವು ನಿರೀಕ್ಷಿಸುವ ಬಾಡಿಗೆ ದರ ಎಷ್ಟು ಅಂತ ಹೇಳ್ತೀರಾ?"
-                elif lang == "hi":
-                    return "जी ठीक है। आपका अपेक्षित किराया कितना है?"
-                else:
-                    return "Understood. What is your expected freight rate?"
+                return f"Got it! {int(float(cap))} tonnes to {target}. What rate are you offering for this load?"
 
-        # 4. Destination, Capacity, and Name/Price collected -> Registration & Marketplace matching
+        # 5. Destination & Capacity known -> Instant Registration & Marketplace matching
         if self.role == "SHIPPER":
             tonnes = float(cap)
-            cargo = self.extracted_data.get("cargo_type", "Agri Produce")
+            cargo = self.extracted_data.get("cargo_type") or "General Goods"
             shipper_name = self.extracted_data.get("name") or "ವ್ಯಾಪಾರಿ"
             max_budget = float(self.extracted_data.get("price") or 0.0)
 
@@ -436,7 +573,7 @@ class VoicePipeline:
                 call_sid=self.call_sid
             )
 
-            match = matching_engine.find_best_truck_for_load(destination=dest, weight=tonnes)
+            match = matching_engine.find_best_truck_for_load(destination=dest, weight=tonnes, max_budget=max_budget)
             if match:
                 record = matching_engine.create_match_record(
                     truck_id=match["truck_id"],
@@ -453,16 +590,22 @@ class VoicePipeline:
                 truck_type = match["truck_type"]
                 loc = match["current_location"]
 
+                dest_display = get_destination_display(dest, lang)
+                price_kn = f"ಬಾಡಿಗೆ ರೂ. {price}" if price > 0 else "ಬಾಡಿಗೆ ಮಾತುಕತೆ ಮೂಲಕ ತೀರ್ಮಾನ"
+                price_hi = f"किराया {price} रुपये" if price > 0 else "किराया बातचीत से तय होगा"
+                price_en = f"Rs. {price}" if price > 0 else "Rate negotiable"
+
                 if lang == "kn":
-                    return f"ಖಂಡಿತ ರೀ {shipper_name}! ನಿಮ್ಮ {int(tonnes)} ಟನ್ {cargo} ಕಳಿಸಲು {dest} ಮಾರ್ಗದ {truck_type} ({loc}) ತಕ್ಷಣ ಲಭ್ಯವಿದೆ. ಬಾಡಿಗೆ ರೂ. {price}. ಈ ಗಾಡಿ ಪಕ್ಕಾ ಮಾಡಲಾ ರೀ?"
+                    return f"ಖಂಡಿತ ರೀ {shipper_name}! ನಿಮ್ಮ {int(tonnes)} ಟನ್ {cargo} ಕಳಿಸಲು {dest_display} ಮಾರ್ಗದ {truck_type} ({loc}) ತಕ್ಷಣ ಲಭ್ಯವಿದೆ. {price_kn}. ಈ ಗಾಡಿ ಪಕ್ಕಾ ಮಾಡಲಾ ರೀ?"
                 elif lang == "hi":
-                    return f"बिल्कुल जी! आपका {int(tonnes)} टन {cargo} भेजने के लिए {dest} के लिए {truck_type} ({loc}) उपलब्ध है। किराया {price} रुपये है। क्या यह गाड़ी बुक करें?"
+                    return f"बिल्कुल जी! आपका {int(tonnes)} टन {cargo} भेजने के लिए {dest} के लिए {truck_type} ({loc}) उपलब्ध है। {price_hi}। क्या यह गाड़ी बुक करें?"
                 else:
-                    return f"Sure! For your {int(tonnes)}-tonne {cargo} to {dest}, a {truck_type} at {loc} is available for Rs. {price}. Confirm booking?"
+                    return f"Sure! For your {int(tonnes)}-tonne {cargo} to {dest}, a {truck_type} at {loc} is available for {price_en}. Confirm booking?"
             else:
                 self.state = "DEAL_OFFER"
+                dest_display = get_destination_display(dest, lang)
                 if lang == "kn":
-                    return f"ಸರಿ ರೀ {shipper_name}. ಅಮರಗೋಳದಿಂದ {dest}ಗೆ ನಿಮ್ಮ {int(tonnes)} ಟನ್ {cargo} ಲೋಡ್ ದಾಖಲಾಗಿದೆ. ಸೂಕ್ತ ರಿಟರ್ನ್ ಗಾಡಿ ಸಿಕ್ಕ ತಕ್ಷಣ ತಿಳಿಸುತ್ತೇವೆ."
+                    return f"ಸರಿ ರೀ {shipper_name}. {dest_display}ಗೆ ನಿಮ್ಮ {int(tonnes)} ಟನ್ {cargo} ಲೋಡ್ ದಾಖಲಾಗಿದೆ. ಸೂಕ್ತ ರಿಟರ್ನ್ ಗಾಡಿ ಸಿಕ್ಕ ತಕ್ಷಣ ತಿಳಿಸುತ್ತೇವೆ."
                 else:
                     return f"Recorded your {int(tonnes)}-tonne {cargo} load for {dest}. We will notify you as soon as a return truck is available."
 
@@ -481,7 +624,7 @@ class VoicePipeline:
                 call_sid=self.call_sid
             )
 
-            match = matching_engine.find_best_load_for_truck(destination=dest, capacity=tonnes)
+            match = matching_engine.find_best_load_for_truck(destination=dest, capacity=tonnes, min_price=min_price)
             if match:
                 record = matching_engine.create_match_record(
                     truck_id=self.current_truck_id,
@@ -499,20 +642,36 @@ class VoicePipeline:
                 pickup = match["pickup_location"]
                 price = int(match["agreed_price"])
 
+                price_kn = f"ಬಾಡಿಗೆ ರೂ. {price}" if price > 0 else "ಬಾಡಿಗೆ ಮಾತುಕತೆ ಮೂಲಕ ತೀರ್ಮಾನ"
+                price_hi = f"किराया {price} रुपये" if price > 0 else "किराया बातचीत से तय होगा"
+                price_en = f"Rs. {price}" if price > 0 else "Rate negotiable"
+
                 if lang == "kn":
-                    return f"ಖಂಡಿತ ರೀ {driver_name}! ನಿಮ್ಮ {int(tonnes)} ಟನ್ ಗಾಡಿಗೆ {pickup}ಯಿಂದ {weight} ಟನ್ {cargo} ಲೋಡ್ ತಕ್ಷಣ ಸಿಕ್ಕಿದೆ. ಬಾಡಿಗೆ ರೂ. {price}. ಈ ಲೋಡ್ ಒಪ್ಕೋತೀರಾ ರೀ?"
+                    return f"ಖಂಡಿತ ರೀ {driver_name}! ನಿಮ್ಮ {int(tonnes)} ಟನ್ ಗಾಡಿಗೆ {pickup}ಯಿಂದ {weight} ಟನ್ {cargo} ಲೋಡ್ ತಕ್ಷಣ ಸಿಕ್ಕಿದೆ. {price_kn}. ಈ ಲೋಡ್ ಒಪ್ಕೋತೀರಾ ರೀ?"
                 elif lang == "hi":
-                    return f"बिल्कुल भाईसाहब! आपके {int(tonnes)} टन ट्रक के लिए {pickup} से {weight} टन {cargo} का लोड तुरंत उपलब्ध है। किराया {price} रुपये है। क्या आप यह लोड लेना चाहते हैं?"
+                    return f"बिल्कुल भाईसाहब! आपके {int(tonnes)} टन ट्रक के लिए {pickup} से {weight} टन {cargo} का लोड तुरंत उपलब्ध है। {price_hi}। क्या आप यह लोड लेना चाहते हैं?"
                 else:
-                    return f"Sure! For your {int(tonnes)}-tonne truck, {weight} tonnes of {cargo} is ready at {pickup} for Rs. {price}. Do you confirm?"
+                    return f"Sure! For your {int(tonnes)}-tonne truck, {weight} tonnes of {cargo} is ready at {pickup} for {price_en}. Do you confirm?"
             else:
                 self.state = "DEAL_OFFER"
+                dest_display = get_destination_display(dest, lang)
                 if lang == "kn":
-                    return f"ಸರಿ ರೀ {driver_name}. ಅಮರಗೋಳದಿಂದ {dest}ಗೆ ನಿಮ್ಮ {int(tonnes)} ಟನ್ ಗಾಡಿ ನೋಂದಾಯಿಸಲಾಗಿದೆ. ಹೊಸ ಲೋಡ್ ಸಿಕ್ಕ ತಕ್ಷಣ ತಿಳಿಸುತ್ತೇವೆ."
+                    return f"ಸರಿ ರೀ {driver_name}. {dest_display}ಗೆ ನಿಮ್ಮ {int(tonnes)} ಟನ್ ಗಾಡಿ ನೋಂದಾಯಿಸಲಾಗಿದೆ. ಹೊಸ ಲೋಡ್ ಸಿಕ್ಕ ತಕ್ಷಣ ತಿಳಿಸುತ್ತೇವೆ."
                 else:
                     return f"Recorded your {int(tonnes)}-tonne truck for {dest}. We will notify you once a load is available."
 
     async def text_to_speech_pcm(self, text: str) -> bytes:
+        lang_code = "kn-IN" if self.language == "kn" else ("hi-IN" if self.language == "hi" else "en-IN")
+
+        # 1. Primary: Gnani Timbre Neural Indic TTS (Native 8000Hz PCM)
+        try:
+            gnani_pcm = await gnani_client.synthesize_gnani(text, language_code=lang_code)
+            if gnani_pcm and len(gnani_pcm) > 0:
+                return gnani_pcm
+        except Exception:
+            pass
+
+        # 2. Resilient Fallback: Edge TTS
         voice = "kn-IN-GaganNeural"
         if self.language == "hi":
             voice = "hi-IN-MadhurNeural"

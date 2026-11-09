@@ -30,9 +30,9 @@ db_manager.init_db()
 
 CHUNK_SIZE = 640  # 40ms of 8000Hz 16-bit mono PCM (320 samples * 2 bytes)
 BASE_SILENCE_THRESHOLD = 320
-SILENCE_DURATION_FRAMES = 30    # ~640ms silence to allow natural pause between words
+SILENCE_DURATION_FRAMES = 25    # ~1000ms silence to detect natural pause at end of utterance
 
-async def send_audio_to_exotel(websocket: WebSocket, stream_sid: str, pcm_data: bytes, cancel_event: asyncio.Event):
+async def send_audio_to_exotel(websocket: WebSocket, stream_sid: str, pcm_data: bytes, cancel_event: asyncio.Event, ws_lock: asyncio.Lock):
     offset = 0
     total = len(pcm_data)
     while offset < total:
@@ -50,7 +50,8 @@ async def send_audio_to_exotel(websocket: WebSocket, stream_sid: str, pcm_data: 
                 "payload": payload
             }
         }
-        await websocket.send_text(json.dumps(msg))
+        async with ws_lock:
+            await websocket.send_text(json.dumps(msg))
         offset += len(chunk)
         await asyncio.sleep(0.038)
 
@@ -59,7 +60,9 @@ async def send_audio_to_exotel(websocket: WebSocket, stream_sid: str, pcm_data: 
 async def health_check():
     return {
         "status": "healthy",
-        "service": "Exotel AgentStream Voicebot",
+        "service": "National Freight Exchange Voicebot (Powered by Gnani.ai)",
+        "stt_model": "Gnani Prisma STT (v3.0)",
+        "tts_model": "Gnani Timbre TTS (v2.5)",
         "telephony_format": "PCM16 8000Hz Mono",
         "auth_model": "CLI-as-Identity (Zero Sign-up)",
         "features": ["One-Shot Slot Extraction", "Call-Back Deal Confirmation", "Async SMS Recommendations", "Barge-in"],
@@ -150,9 +153,21 @@ async def websocket_endpoint(websocket: WebSocket):
     audio_buffer = bytearray()
     silence_frames = 0
     speech_detected = False
+    active_speech_frames = 0
     is_responding = False
     is_playing_audio = False
     cancel_speech_event = asyncio.Event()
+    ws_lock = asyncio.Lock()
+
+    async def play_audio_task(pcm: bytes):
+        nonlocal is_playing_audio
+        is_playing_audio = True
+        try:
+            await send_audio_to_exotel(websocket, stream_sid, pcm, cancel_speech_event, ws_lock)
+        except (WebSocketDisconnect, Exception) as e:
+            logger.info(f"Audio playback completed or stream closed: {e}")
+        finally:
+            is_playing_audio = False
 
     adaptive_threshold = BASE_SILENCE_THRESHOLD
     noise_samples = []
@@ -193,17 +208,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 else:
                     is_returning = profile.get("total_calls", 1) > 1
                     if is_returning:
-                        greeting_text = "ನಮಸ್ಕಾರ ರೀ! ಎಪಿಎಂಸಿ ಅಮರಗೋಳಕ್ಕೆ ಮತ್ತೆ ಸ್ವಾಗತ. ಇಂದು ನಿಮ್ಮ ಗಾಡಿ ಯಾವ ಊರಿಗೆ ಹೊರಡಬೇಕು?"
+                        greeting_text = "ನಮಸ್ಕಾರ ರೀ! ರಾಷ್ಟ್ರೀಯ ಸರಕು ಸಾರಿಗೆ ಸೇತುಗೆ ಮತ್ತೆ ಸ್ವಾಗತ. ಇಂದು ನಿಮ್ಮ ಲೋಡ್ ಅಥವಾ ಗಾಡಿ ಯಾವ ಮಾರ್ಗಕ್ಕೆ ಬೇಕು?"
                     else:
-                        greeting_text = "ನಮಸ್ಕಾರ ರೀ! ಎಪಿಎಂಸಿ ಅಮರಗೋಳ ರಿಟರ್ನ್ ಲೋಡ್ ಕೇಂದ್ರ. ನಿಮ್ಮ ಗಾಡಿ ಯಾವ ಊರಿಗೆ ಹೊರಡಬೇಕು?"
+                        greeting_text = "ನಮಸ್ಕಾರ ರೀ! ರಾಷ್ಟ್ರೀಯ ಸರಕು ಸಾರಿಗೆ ಸೇತು. ನಿಮ್ಮ ಗಾಡಿ ಅಥವಾ ಲೋಡ್ ಯಾವ ಊರಿನಿಂದ ಯಾವ ಊರಿಗೆ ಬೇಕು?"
 
                 db_manager.save_utterance(call_sid, "agent", greeting_text)
                 greeting_pcm = await pipeline.text_to_speech_pcm(greeting_text)
                 cancel_speech_event.clear()
-                is_playing_audio = True
-                asyncio.create_task(send_audio_to_exotel(websocket, stream_sid, greeting_pcm, cancel_speech_event))
-                await asyncio.sleep(len(greeting_pcm) / (8000 * 2) + 0.2)
-                is_playing_audio = False
+                asyncio.create_task(play_audio_task(greeting_pcm))
 
             elif event == "media":
                 media_obj = data.get("media", {})
@@ -216,6 +228,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 except Exception:
                     continue
 
+                # While bot is speaking, ignore incoming line noise so agent speaks cleanly to caller
+                if is_playing_audio:
+                    continue
+
                 rms = calculate_rms(chunk)
 
                 # Calibrate ambient noise floor dynamically
@@ -226,21 +242,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         adaptive_threshold = max(BASE_SILENCE_THRESHOLD, avg_noise * 1.2)
                         logger.info(f"Calibrated noise threshold: {adaptive_threshold:.1f} RMS")
 
-                # Barge-in: if bot is playing and caller speaks, stop audio immediately
-                if is_playing_audio and rms > (adaptive_threshold * 1.3):
-                    cancel_speech_event.set()
-                    is_playing_audio = False
-                    await websocket.send_text(json.dumps({
-                        "event": "clear",
-                        "stream_sid": stream_sid
-                    }))
-                    logger.info("Barge-in triggered: clearing Exotel audio buffer.")
-
                 if is_responding:
                     continue
 
                 if rms > adaptive_threshold:
                     speech_detected = True
+                    active_speech_frames += 1
                     silence_frames = 0
                     audio_buffer.extend(chunk)
                 else:
@@ -249,12 +256,23 @@ async def websocket_endpoint(websocket: WebSocket):
                         audio_buffer.extend(chunk)
 
                         # End of turn detected (caller finished speaking)
-                        if silence_frames >= SILENCE_DURATION_FRAMES and len(audio_buffer) > 20000:
+                        if silence_frames >= SILENCE_DURATION_FRAMES:
+                            # Verify if caller actually voiced speech (at least 6 frames = 240ms of active speech)
+                            if active_speech_frames < 6 or len(audio_buffer) < 16000:
+                                # Minor throat clear, mic click, or breath (< 240ms of voice).
+                                # Discard silently without interrupting caller!
+                                audio_buffer.clear()
+                                speech_detected = False
+                                silence_frames = 0
+                                active_speech_frames = 0
+                                continue
+
                             is_responding = True
                             user_pcm = bytes(audio_buffer)
                             audio_buffer.clear()
                             speech_detected = False
                             silence_frames = 0
+                            active_speech_frames = 0
 
                             if pipeline:
                                 logger.info(f"Processing speech ({len(user_pcm)} bytes)...")
@@ -263,7 +281,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 if not recognized_text:
                                     logger.warning("Empty transcription, asking for repeat in caller language.")
                                     if pipeline.language == "kn":
-                                        agent_reply = "ಕ್ಷಮಿಸಿ ರೀ, ನಿಮ್ಮ ಮಾತು ಸ್ಪಷ್ಟವಾಗಿ ಕೇಳಿಸಲಿಲ್ಲ. ಯಾವ ಊರಿಗೆ ಲೋಡ್ ಬೇಕು ಅಂತ ಇನ್ನೊಮ್ಮೆ ಹೇಳ್ತೀರಾ?"
+                                        agent_reply = "ಕ್ಷಮಿಸಿ ರೀ, ಇನ್ನೊಮ್ಮೆ ಸ್ಪಷ್ಟವಾಗಿ ಹೇಳ್ತೀರಾ?"
                                     elif pipeline.language == "hi":
                                         agent_reply = "माफ कीजिए, आवाज साफ नहीं आई। किस शहर के लिए लोड चाहिए, दोबारा बोलेंगे?"
                                     else:
@@ -279,9 +297,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                                 reply_pcm = await pipeline.text_to_speech_pcm(agent_reply)
                                 cancel_speech_event.clear()
-                                is_playing_audio = True
-                                await send_audio_to_exotel(websocket, stream_sid, reply_pcm, cancel_speech_event)
-                                is_playing_audio = False
+                                asyncio.create_task(play_audio_task(reply_pcm))
 
                             is_responding = False
 
