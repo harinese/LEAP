@@ -6,6 +6,7 @@ import struct
 import base64
 import os
 import asyncio
+import logging
 from typing import Tuple, Optional, Dict, Any, List
 
 import edge_tts
@@ -14,6 +15,8 @@ import speech_recognition as sr
 import db_manager
 import matching_engine
 import gnani_client
+
+logger = logging.getLogger('voice_pipeline')
 
 KANNADA_NUMBERS = {
     "ಒಂದು": 1, "ಎರಡು": 2, "ಮೂರು": 3, "ನಾಲ್ಕು": 4, "ಐದು": 5,
