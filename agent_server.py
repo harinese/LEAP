@@ -29,6 +29,30 @@ app.add_middleware(
 
 db_manager.init_db()
 
+KANNADA_GREETING_TEXT = "ನಮಸ್ಕಾರ ರೀ! ರಾಷ್ಟ್ರೀಯ ಸರಕು ಸಾರಿಗೆ ಸೇತು. ನಿಮ್ಮ ಗಾಡಿ ಅಥವಾ ಲೋಡ್ ಯಾವ ಊರಿನಿಂದ ಯಾವ ಊರಿಗೆ ಬೇಕು?"
+CACHED_KANNADA_GREETING_PCM: bytes = b""
+
+async def get_or_create_cached_greeting() -> bytes:
+    global CACHED_KANNADA_GREETING_PCM
+    if CACHED_KANNADA_GREETING_PCM:
+        return CACHED_KANNADA_GREETING_PCM
+    try:
+        vp = VoicePipeline("warmup", "warmup")
+        vp.language = "kn"
+        pcm = await vp.text_to_speech_pcm(KANNADA_GREETING_TEXT)
+        if pcm:
+            CACHED_KANNADA_GREETING_PCM = pcm
+            logger.info(f"Pre-cached Kannada greeting audio ({len(pcm)} bytes) ready in RAM!")
+        return pcm
+    except Exception as e:
+        logger.error(f"Error warming up greeting: {e}")
+        return b""
+
+@app.on_event("startup")
+async def startup_warmup():
+    asyncio.create_task(get_or_create_cached_greeting())
+
+
 def get_db_context_summary():
     try:
         conn = db_manager.get_connection()
@@ -51,7 +75,7 @@ def get_db_context_summary():
 
 CHUNK_SIZE = 640  # 40ms of 8000Hz 16-bit mono PCM (320 samples * 2 bytes)
 BASE_SILENCE_THRESHOLD = 320
-SILENCE_DURATION_FRAMES = 38    # ~1520ms silence to allow natural breathing pauses without cut-off
+SILENCE_DURATION_FRAMES = 22    # ~880ms silence for ultra-fast turn turnaround without long pause
 
 async def send_audio_to_exotel(websocket: WebSocket, stream_sid: str, pcm_data: bytes, cancel_event: asyncio.Event, ws_lock: asyncio.Lock):
     offset = 0
@@ -228,14 +252,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         f"ನಿಗದಿತ ಬಾಡಿಗೆ ರೂ. {rate}. ಡೀಲ್ ಪಕ್ಕಾ ಮಾಡಲು 'ಸರಿ' ಅಥವಾ 'ಹೌದು' ಎನ್ನಿ."
                     )
                 else:
-                    is_returning = profile.get("total_calls", 1) > 1
-                    if is_returning:
-                        greeting_text = "ನಮಸ್ಕಾರ ರೀ! ರಾಷ್ಟ್ರೀಯ ಸರಕು ಸಾರಿಗೆ ಸೇತುಗೆ ಮತ್ತೆ ಸ್ವಾಗತ. ಇಂದು ನಿಮ್ಮ ಲೋಡ್ ಅಥವಾ ಗಾಡಿ ಯಾವ ಮಾರ್ಗಕ್ಕೆ ಬೇಕು?"
-                    else:
-                        greeting_text = "ನಮಸ್ಕಾರ ರೀ! ರಾಷ್ಟ್ರೀಯ ಸರಕು ಸಾರಿಗೆ ಸೇತು. ನಿಮ್ಮ ಗಾಡಿ ಅಥವಾ ಲೋಡ್ ಯಾವ ಊರಿನಿಂದ ಯಾವ ಊರಿಗೆ ಬೇಕು?"
+                    greeting_text = KANNADA_GREETING_TEXT
 
                 db_manager.save_utterance(call_sid, "agent", greeting_text)
-                greeting_pcm = await pipeline.text_to_speech_pcm(greeting_text)
+                # Instant zero-delay playback from RAM cache
+                greeting_pcm = await get_or_create_cached_greeting()
+                if not greeting_pcm:
+                    greeting_pcm = await pipeline.text_to_speech_pcm(greeting_text)
                 cancel_speech_event.clear()
                 asyncio.create_task(play_audio_task(greeting_pcm))
 
