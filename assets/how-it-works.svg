@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" width="900" height="320">
+  <defs>
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="hsl(222, 22%, 13%)" />
+      <stop offset="100%" stop-color="hsl(222, 24%, 10%)" />
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="hsl(210, 70%, 58%)" />
+    </marker>
+  </defs>
+
+  <rect width="900" height="320" rx="14" fill="hsl(222, 26%, 8%)" stroke="hsl(220, 18%, 20%)" stroke-width="1.5" />
+
+  <!-- Section Title -->
+  <text x="36" y="38" fill="hsl(210, 20%, 96%)" font-family="Segoe UI, -apple-system, sans-serif" font-size="16" font-weight="700">
+    HOW SETU WORKS: FROM BROKEN MARKET TO VOICE MATCH
+  </text>
+  <line x1="36" y1="50" x2="864" y2="50" stroke="hsl(220, 18%, 18%)" stroke-width="1" />
+
+  <!-- Top Row: Problem vs Solution Banner -->
+  <g transform="translate(36, 68)">
+    <rect width="400" height="66" rx="10" fill="hsl(0, 32%, 12%)" stroke="hsl(0, 45%, 32%)" stroke-width="1" />
+    <text x="18" y="26" fill="hsl(0, 75%, 70%)" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" letter-spacing="0.5">THE PROBLEM</text>
+    <text x="18" y="48" fill="hsl(210, 20%, 88%)" font-family="Segoe UI, sans-serif" font-size="13">
+      40%+ trucks return empty while farmers lose 30% to brokers.
+    </text>
+  </g>
+
+  <g transform="translate(464, 68)">
+    <rect width="400" height="66" rx="10" fill="hsl(152, 32%, 12%)" stroke="hsl(152, 45%, 32%)" stroke-width="1" />
+    <text x="18" y="26" fill="hsl(152, 65%, 65%)" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" letter-spacing="0.5">THE SETU APPROACH</text>
+    <text x="18" y="48" fill="hsl(210, 20%, 88%)" font-family="Segoe UI, sans-serif" font-size="13">
+      No apps or logins. A standard phone call connects both sides.
+    </text>
+  </g>
+
+  <!-- Step Cards (Bottom Row) -->
+  <!-- Step 1 -->
+  <g transform="translate(36, 158)">
+    <rect width="186" height="132" rx="10" fill="url(#cardBg)" stroke="hsl(220, 18%, 24%)" />
+    <rect x="14" y="14" width="54" height="20" rx="4" fill="hsl(210, 50%, 20%)" />
+    <text x="41" y="28" fill="hsl(210, 80%, 72%)" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" text-anchor="middle">STEP 1</text>
+    <text x="14" y="56" fill="hsl(210, 20%, 96%)" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">Dial 08047289156</text>
+    <text x="14" y="78" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">Caller ID acts as login.</text>
+    <text x="14" y="96" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">Works on any phone,</text>
+    <text x="14" y="114" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">zero app installs.</text>
+  </g>
+
+  <!-- Animated Connector 1 -> 2 -->
+  <line x1="224" y1="224" x2="254" y2="224" stroke="hsl(210, 70%, 58%)" stroke-width="2" marker-end="url(#arrow)" />
+  <circle cx="224" cy="224" r="3" fill="hsl(210, 80%, 70%)">
+    <animate attributeName="cx" values="224;252" dur="1.4s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="1;0.2" dur="1.4s" repeatCount="indefinite" />
+  </circle>
+
+  <!-- Step 2 -->
+  <g transform="translate(260, 158)">
+    <rect width="186" height="132" rx="10" fill="url(#cardBg)" stroke="hsl(220, 18%, 24%)" />
+    <rect x="14" y="14" width="54" height="20" rx="4" fill="hsl(195, 50%, 20%)" />
+    <text x="41" y="28" fill="hsl(195, 80%, 72%)" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" text-anchor="middle">STEP 2</text>
+    <text x="14" y="56" fill="hsl(210, 20%, 96%)" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">Speak Naturally</text>
+    <text x="14" y="78" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">Kannada, Hindi, English.</text>
+    <text x="14" y="96" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">Gnani Prisma v3.0 parses</text>
+    <text x="14" y="114" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">noisy cellular speech.</text>
+  </g>
+
+  <!-- Animated Connector 2 -> 3 -->
+  <line x1="448" y1="224" x2="478" y2="224" stroke="hsl(210, 70%, 58%)" stroke-width="2" marker-end="url(#arrow)" />
+  <circle cx="448" cy="224" r="3" fill="hsl(195, 80%, 70%)">
+    <animate attributeName="cx" values="448;476" dur="1.4s" begin="0.35s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="1;0.2" dur="1.4s" begin="0.35s" repeatCount="indefinite" />
+  </circle>
+
+  <!-- Step 3 -->
+  <g transform="translate(484, 158)">
+    <rect width="186" height="132" rx="10" fill="url(#cardBg)" stroke="hsl(220, 18%, 24%)" />
+    <rect x="14" y="14" width="54" height="20" rx="4" fill="hsl(38, 55%, 20%)" />
+    <text x="41" y="28" fill="hsl(38, 85%, 70%)" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" text-anchor="middle">STEP 3</text>
+    <text x="14" y="56" fill="hsl(210, 20%, 96%)" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">AI Corridor Match</text>
+    <text x="14" y="78" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">Gemini 2.5 Flash captures</text>
+    <text x="14" y="96" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">route, tonnes &amp; budget</text>
+    <text x="14" y="114" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">to pair truck + produce.</text>
+  </g>
+
+  <!-- Animated Connector 3 -> 4 -->
+  <line x1="672" y1="224" x2="702" y2="224" stroke="hsl(210, 70%, 58%)" stroke-width="2" marker-end="url(#arrow)" />
+  <circle cx="672" cy="224" r="3" fill="hsl(152, 70%, 60%)">
+    <animate attributeName="cx" values="672;700" dur="1.4s" begin="0.7s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="1;0.2" dur="1.4s" begin="0.7s" repeatCount="indefinite" />
+  </circle>
+
+  <!-- Step 4 -->
+  <g transform="translate(708, 158)">
+    <rect width="156" height="132" rx="10" fill="url(#cardBg)" stroke="hsl(152, 45%, 30%)" />
+    <rect x="14" y="14" width="54" height="20" rx="4" fill="hsl(152, 45%, 20%)" />
+    <text x="41" y="28" fill="hsl(152, 70%, 68%)" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" text-anchor="middle">STEP 4</text>
+    <text x="14" y="56" fill="hsl(210, 20%, 96%)" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">Native Reply</text>
+    <text x="14" y="78" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">Gnani Timbre v2.5</text>
+    <text x="14" y="96" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">confirms match in</text>
+    <text x="14" y="114" fill="hsl(152, 65%, 65%)" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600">real-time voice.</text>
+  </g>
+</svg>
