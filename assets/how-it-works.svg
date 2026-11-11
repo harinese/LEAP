@@ -59,7 +59,7 @@
     <rect x="14" y="14" width="54" height="20" rx="4" fill="hsl(195, 50%, 20%)" />
     <text x="41" y="28" fill="hsl(195, 80%, 72%)" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" text-anchor="middle">STEP 2</text>
     <text x="14" y="56" fill="hsl(210, 20%, 96%)" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700">Speak Naturally</text>
-    <text x="14" y="78" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">Kannada, Hindi, English.</text>
+    <text x="14" y="78" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">9+ Regional Languages.</text>
     <text x="14" y="96" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">Gnani Prisma v3.0 parses</text>
     <text x="14" y="114" fill="hsl(215, 16%, 68%)" font-family="Segoe UI, sans-serif" font-size="12">noisy cellular speech.</text>
   </g>
